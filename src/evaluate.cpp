@@ -1059,25 +1059,29 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   // PSQ advantage is decisive and several pieces remain (~3 Elo)
   bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 && abs(psq) > 1760);
   if (useClassical)
+  {
       v = Evaluation<NO_TRACE>(pos).value();
+      // Damp down Classical evaluation linearly with 50 move rule
+      v = v * (100 - pos.rule50_count()) / 100;
+  }
   else
   {
       int nnueComplexity;
-      int scale = 1064 + 106 * pos.non_pawn_material() / 5120;
+      int scale = 1075 + 100 * pos.non_pawn_material() / 5120;
       Value optimism = pos.this_thread()->optimism[stm];
 
       Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
       // Blend nnue complexity with (semi)classical complexity
-      nnueComplexity = (104 * nnueComplexity + 131 * abs(nnue - psq)) / 256;
+      nnueComplexity = (101 * nnueComplexity + 126 * abs(nnue - psq)) / 256;
       if (complexity) // Return hybrid NNUE complexity to caller
           *complexity = nnueComplexity;
 
-      optimism = optimism * (269 + nnueComplexity) / 256;
-      v = (nnue * scale + optimism * (scale - 754)) / 1024;
-  }
+      optimism = optimism * (272 + nnueComplexity) / 256;
+      v = (nnue * scale + optimism * (scale - 753)) / 1024;
 
-  // Damp down the evaluation linearly when shuffling
-  v = v * (195 - pos.rule50_count()) / 211;
+      // Damp down NNUE evaluation linearly with 50 move rule
+      v = v * (186 - pos.rule50_count()) / 216;
+  }
 
   // Guarantee evaluation does not hit the tablebase range
   v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
