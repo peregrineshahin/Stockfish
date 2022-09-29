@@ -1054,13 +1054,18 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   Color stm = pos.side_to_move();
   Value psq = pos.psq_eg_stm();
 
-  // We use the much less accurate but faster Classical eval when the NNUE 
-  // option is set to false. Otherwise we use the NNUE eval unless the
-  // PSQ advantage is decisive and several pieces remain (~3 Elo)
-  bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 && abs(psq) > 1760);
-  if (useClassical)
+  bool useClassical = (pos.count<ALL_PIECES>() > 7)
+                      && abs(psq) * 5 > (856 + pos.non_pawn_material() / 64) * (10 + pos.rule50_count());
+  // Deciding between classical and NNUE eval (~10 Elo): for high PSQ imbalance we use classical,
+  // but we switch to NNUE during long shuffling or with high material on the board.
+  if (!useNNUE || useClassical)
+  {
       v = Evaluation<NO_TRACE>(pos).value();
-  else
+      useClassical = abs(v) >= 297;
+  }
+ 
+  // If result of a classical evaluation is much lower than threshold fall back to NNUE
+  if (useNNUE && !useClassical)
   {
       int nnueComplexity;
       int scale = 1064 + 106 * pos.non_pawn_material() / 5120;
