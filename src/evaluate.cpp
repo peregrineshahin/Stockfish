@@ -1064,7 +1064,8 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
     
     // if the 50 rule count hit then it's a draw,
     // Other Damp down Classical evaluation linearly when shuffling
-    std::cerr << pos.rule50_count() << endl;
+    if (pos.rule50_count() > 30)
+        std::cerr << pos.rule50_count() << endl;
     if (pos.rule50_count() == 50)
        v = Value(0);
     else
