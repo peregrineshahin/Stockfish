@@ -1060,7 +1060,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 &&
                                    abs(psq) > 1999);
   if (useClassical)
-     {  std::cerr << std::endl << psq << std::endl;
+     {
         v = Evaluation<NO_TRACE>(pos).value();
      }
   else
