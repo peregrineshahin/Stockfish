@@ -1061,8 +1061,13 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   if (useClassical)
   {
     v = Evaluation<NO_TRACE>(pos).value();
-    // Damp down Classical evaluation linearly with 50 move rule
-    v = v * (100 - pos.rule50_count()) / 100;
+    
+    // if the 50 rule count hit then it's a draw,
+    // Other Damp down Classical evaluation linearly when shuffling
+    if (pos.rule50_count() == 50)
+       v = Value(0);
+    else
+       v = v * (100 - pos.rule50_count()) / 100;
   }
   else
   {
