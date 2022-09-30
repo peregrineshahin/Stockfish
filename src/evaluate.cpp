@@ -1066,7 +1066,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
     // Other Damp down Classical evaluation linearly when shuffling
     if (pos.rule50_count() > 30)
         std::cerr << pos.rule50_count() << endl;
-    if (pos.rule50_count() == 50)
+    if (pos.rule50_count() == 49)
        v = Value(0);
     else
        v = v * (100 - pos.rule50_count()) / 100;
