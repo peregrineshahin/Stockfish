@@ -1054,34 +1054,39 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   Value psq = pos.psq_eg_stm();
 
   // We use the much less accurate but faster Classical eval when the NNUE
-  // option is set to false. Otherwise we use the NNUE eval unless the
-  // PSQ advantage is decisive and several pieces remain. (~3 Elo)
-  bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 && abs(psq) > 1760);
-
-  if (useClassical)
+  // option is set to false. Otherwise we use the NNUE eval.
+  if (!useNNUE)
       v = Evaluation<NO_TRACE>(pos).value();
   else
   {
       int nnueComplexity;
-      int scale = 1064 + 106 * pos.non_pawn_material() / 5120;
-
-      Color stm = pos.side_to_move();
-      Value optimism = pos.this_thread()->optimism[stm];
-
       Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
+      if (abs(psq) > 1760)
+      {
+        v = (nnue - 32) * abs(psq) / 1024;
+        if (complexity)
+            *complexity = abs(v - psq);
+      }
+      else
+      {
+        int scale = 1064 + 106 * pos.non_pawn_material() / 5120;
 
-      // Blend nnue complexity with (semi)classical complexity
-      nnueComplexity = (  416 * nnueComplexity
-                        + 424 * abs(psq - nnue)
-                        + (optimism  > 0 ? int(optimism) * int(psq - nnue) : 0)
-                        ) / 1024;
+        Color stm = pos.side_to_move();
+        Value optimism = pos.this_thread()->optimism[stm];
 
-      // Return hybrid NNUE complexity to caller
-      if (complexity)
-          *complexity = nnueComplexity;
+        // Blend nnue complexity with (semi)classical complexity
+        nnueComplexity = (  416 * nnueComplexity
+                            + 424 * abs(psq - nnue)
+                            + (optimism  > 0 ? int(optimism) * int(psq - nnue) : 0)
+                            ) / 1024;
 
-      optimism = optimism * (269 + nnueComplexity) / 256;
-      v = (nnue * scale + optimism * (scale - 754)) / 1024;
+        // Return hybrid NNUE complexity to caller
+        if (complexity)
+            *complexity = nnueComplexity;
+
+        optimism = optimism * (269 + nnueComplexity) / 256;
+        v = (nnue * scale + optimism * (scale - 754)) / 1024;
+      }
   }
 
   // Damp down the evaluation linearly when shuffling
@@ -1091,7 +1096,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 
   // When not using NNUE, return classical complexity to caller
-  if (complexity && (!useNNUE || useClassical))
+  if (complexity && !useNNUE)
       *complexity = abs(v - psq);
 
   return v;
