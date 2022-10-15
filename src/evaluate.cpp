@@ -1060,19 +1060,22 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   else
   {
       int nnueComplexity;
+      Color stm = pos.side_to_move();
       Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
+      Value optimism = pos.this_thread()->optimism[stm];
       if (abs(psq) > 1760)
       {
-        v = (nnue - 32) * abs(psq) / 1024;
+        // int classV = Evaluation<NO_TRACE>(pos).value();
+        v = (nnue * abs(psq) + optimism * 32) / 1024;
+        // std::cerr << v << endl;
+        // std::cerr << classV << endl << endl;
+        // dbg_mean_of(v > classV);
         if (complexity)
             *complexity = abs(v - psq);
       }
       else
       {
         int scale = 1064 + 106 * pos.non_pawn_material() / 5120;
-
-        Color stm = pos.side_to_move();
-        Value optimism = pos.this_thread()->optimism[stm];
 
         // Blend nnue complexity with (semi)classical complexity
         nnueComplexity = (  416 * nnueComplexity
