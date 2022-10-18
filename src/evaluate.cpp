@@ -1060,7 +1060,8 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   else
   {
       int nnueComplexity;
-      int scale = std::max((abs(psq) - 700) , 1065 + 106 * pos.non_pawn_material() / 5120);
+      int scale = 1065 + 106 * pos.non_pawn_material() / 5120;
+      dbg_mean_of((float)pos.non_pawn_material() / (float)psq);
       Color stm = pos.side_to_move();
       Value optimism = pos.this_thread()->optimism[stm];
 
