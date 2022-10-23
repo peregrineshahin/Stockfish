@@ -1147,12 +1147,12 @@ moves_loop: // When in check, search starts here
 
           // Increase reduction for cut nodes (~3 Elo)
           if (cutNode)
-              r += pos.rule50_count();
+              r += 2;
 
           // Increase reduction if ttMove is a capture (~3 Elo)
           if (ttCapture)
               r++;
-
+          std::cerr << improving << endl;
           // Decrease reduction for PvNodes based on depth
           if (PvNode)
               r -= 1 + 11 / (3 + depth);
