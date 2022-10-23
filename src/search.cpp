@@ -1152,7 +1152,7 @@ moves_loop: // When in check, search starts here
           // Increase reduction if ttMove is a capture (~3 Elo)
           if (ttCapture)
               r++;
-          std::cerr << improving << endl;
+          std::cerr << improving << std::endl;
           // Decrease reduction for PvNodes based on depth
           if (PvNode)
               r -= 1 + 11 / (3 + depth);
