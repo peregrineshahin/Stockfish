@@ -1101,6 +1101,7 @@ moves_loop: // When in check, search starts here
           // Quiet ttMove extensions (~0 Elo)
           else if (   PvNode
                    && move == ttMove
+                   && (pos.rule50_count() <= 13 || complexity > 861)
                    && move == ss->killers[0]
                    && (*contHist[0])[movedPiece][to_sq(move)] >= 5177)
               extension = 1;
