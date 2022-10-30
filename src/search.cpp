@@ -1104,7 +1104,10 @@ moves_loop: // When in check, search starts here
                    && (pos.rule50_count() <= 13 || complexity < 640)
                    && move == ss->killers[0]
                    && (*contHist[0])[movedPiece][to_sq(move)] >= 5177)
-              extension = 1;
+           {
+               std::cerr << complexity << std::endl;
+               extension = 1;
+           }
       }
 
       // Add extension to new depth
