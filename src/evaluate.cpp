@@ -1052,13 +1052,12 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
 
   Value v;
   Value psq = pos.psq_eg_stm();
+  int maxPsq = std::clamp(int(psq), -2000, 2000);
 
   // We use the much less accurate but faster Classical eval when the NNUE
-  // option is set to false. Otherwise we use the NNUE eval unless the
-  // PSQ advantage is decisive and several pieces remain. (~3 Elo)
-  bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 && abs(psq) > 1760);
+  // option is set to false. Otherwise we use the NNUE eval.
 
-  if (useClassical)
+  if (!useNNUE)
       v = Evaluation<NO_TRACE>(pos).value();
   else
   {
@@ -1072,8 +1071,8 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
 
       // Blend nnue complexity with (semi)classical complexity
       nnueComplexity = (  416 * nnueComplexity
-                        + 424 * abs(psq - nnue)
-                        + (optimism  > 0 ? int(optimism) * int(psq - nnue) : 0)
+                        + 424 * abs(maxPsq - nnue)
+                        + (optimism  > 0 ? int(optimism) * int(maxPsq - nnue) : 0)
                         ) / 1024;
 
       // Return hybrid NNUE complexity to caller
@@ -1091,7 +1090,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 
   // When not using NNUE, return classical complexity to caller
-  if (complexity && (!useNNUE || useClassical))
+  if (complexity && !useNNUE)
       *complexity = abs(v - psq);
 
   return v;
