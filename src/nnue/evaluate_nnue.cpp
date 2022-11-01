@@ -29,6 +29,7 @@
 #include "../misc.h"
 #include "../uci.h"
 #include "../types.h"
+#include "../thread.h"
 
 #include "evaluate_nnue.h"
 
@@ -143,7 +144,6 @@ namespace Stockfish::Eval::NNUE {
     // overaligning stack variables with alignas() doesn't work correctly.
 
     constexpr uint64_t alignment = CacheLineSize;
-    int delta = 24 - pos.non_pawn_material() / 9560;
 
 #if defined(ALIGNAS_ON_STACK_VARIABLES_BROKEN)
     TransformedFeatureType transformedFeaturesUnaligned[
@@ -164,11 +164,25 @@ namespace Stockfish::Eval::NNUE {
     if (complexity)
         *complexity = abs(psqt - positional) / OutputScale;
 
-    // Give more value to positional evaluation when adjusted flag is set
+    // When adjusted flag is set, tweak relative weights of positional vs psqt
     if (adjusted)
-        return static_cast<Value>(((1024 - delta) * psqt + (1024 + delta) * positional) / (1024 * OutputScale));
+    {
+        int deltaPos =   144
+                       + 5 * abs(pos.count<PAWN>(WHITE) - pos.count<PAWN>(BLACK))
+                       + pos.count<PAWN>()
+                       + pos.this_thread()->depth
+                       - pos.non_pawn_material() / 14367;
+
+        int deltaPsq =   88
+                       + 2 * pos.count<PAWN>()
+                       + 4 * abs(pos.count<PAWN>(WHITE) - pos.count<PAWN>(BLACK))
+                       + pos.rule50_count()
+                       + pos.non_pawn_material() / 8046;
+
+        return static_cast<Value>(((1024 + deltaPos) * positional + (1024 + deltaPsq) * psqt) / (1024 * OutputScale));
+    }
     else
-        return static_cast<Value>((psqt + positional) / OutputScale);
+        return static_cast<Value>((positional + psqt) / OutputScale);
   }
 
   struct NnueEvalTrace {
