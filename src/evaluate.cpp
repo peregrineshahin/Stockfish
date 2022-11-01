@@ -1052,13 +1052,12 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
 
   Value v;
   Value psq = pos.psq_eg_stm();
+  bool useClassical = pos.count<ALL_PIECES>() > 7 && abs(psq) > 1760;
 
   // We use the much less accurate but faster Classical eval when the NNUE
-  // option is set to false. Otherwise we use the NNUE eval unless the
-  // PSQ advantage is decisive and several pieces remain. (~3 Elo)
-  bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 && abs(psq) > 1760);
+  // option is set to false. Otherwise we use the NNUE eval.
 
-  if (useClassical)
+  if (!useNNUE)
       v = Evaluation<NO_TRACE>(pos).value();
   else
   {
@@ -1081,7 +1080,11 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
           *complexity = nnueComplexity;
 
       optimism = optimism * (269 + nnueComplexity) / 256;
-      v = (nnue * scale + optimism * (scale - 754)) / 1024;
+
+      if (useClassical)
+          v = (nnue * (scale + abs(psq - nnue))) / 1024;
+      else
+          v = (nnue * scale + optimism * (scale - 754)) / 1024;
   }
 
   // Damp down the evaluation linearly when shuffling
@@ -1091,7 +1094,7 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
   v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 
   // When not using NNUE, return classical complexity to caller
-  if (complexity && (!useNNUE || useClassical))
+  if (complexity && !useNNUE)
       *complexity = abs(v - psq);
 
   return v;
