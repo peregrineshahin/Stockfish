@@ -167,17 +167,14 @@ namespace Stockfish::Eval::NNUE {
     // When adjusted flag is set, tweak relative weights of positional vs psqt
     if (adjusted)
     {
-        int deltaPos =   144
-                       + 5 * abs(pos.count<PAWN>(WHITE) - pos.count<PAWN>(BLACK))
-                       + pos.count<PAWN>()
-                       + pos.this_thread()->depth
-                       - pos.non_pawn_material() / 14367;
+        int deltaPos =   160
+                       + 2 * abs(pos.count<PAWN>(WHITE) - pos.count<PAWN>(BLACK))
+                       + pos.count<PAWN>();
 
-        int deltaPsq =   88
-                       + 2 * pos.count<PAWN>()
-                       + 4 * abs(pos.count<PAWN>(WHITE) - pos.count<PAWN>(BLACK))
-                       + pos.rule50_count()
-                       + pos.non_pawn_material() / 8046;
+        int deltaPsq =   103
+                       + 4 * pos.count<PAWN>()
+                       + 8 * abs(pos.count<PAWN>(WHITE) - pos.count<PAWN>(BLACK))
+                       + pos.non_pawn_material() / 7812;
 
         return static_cast<Value>(((1024 + deltaPos) * positional + (1024 + deltaPsq) * psqt) / (1024 * OutputScale));
     }
