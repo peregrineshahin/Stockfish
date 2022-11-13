@@ -1549,9 +1549,7 @@ moves_loop: // When in check, search starts here
 
       // movecount pruning for quiet check evasions
       if (   bestValue > VALUE_TB_LOSS_IN_MAX_PLY
-          && quietCheckEvasions > 1
-          && !capture
-          && ss->inCheck)
+          && quietCheckEvasions > 1)
           continue;
 
       quietCheckEvasions += !capture && ss->inCheck;
