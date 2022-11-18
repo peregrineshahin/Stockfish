@@ -1276,7 +1276,8 @@ moves_loop: // When in check, search starts here
                   alpha = value;
 
                   // Reduce other moves if we have found at least one score improvement
-                  if (   beta  <  VALUE_KNOWN_WIN
+                  if (   depth < 11
+                      && beta  <  VALUE_KNOWN_WIN
                       && alpha > -VALUE_KNOWN_WIN)
                      depth = depth / 2 + 1;
 
