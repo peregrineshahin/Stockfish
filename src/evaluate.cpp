@@ -1069,11 +1069,12 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
       Value optimism = pos.this_thread()->optimism[stm];
 
       Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
+      int maxPsq = std::clamp(int(psq), -1660, 1660);
 
       // Blend nnue complexity with (semi)classical complexity
       nnueComplexity = (  416 * nnueComplexity
-                        + 424 * abs(psq - nnue)
-                        + (optimism  > 0 ? int(optimism) * int(psq - nnue) : 0)
+                        + 424 * abs(maxPsq - nnue)
+                        + (optimism  > 0 ? int(optimism) * int(maxPsq - nnue) : 0)
                         ) / 1024;
 
       // Return hybrid NNUE complexity to caller
