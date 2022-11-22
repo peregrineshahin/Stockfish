@@ -1485,8 +1485,8 @@ moves_loop: // When in check, search starts here
                                       contHist,
                                       prevSq);
 
-    int quietCheckEvasions = 0;
-
+    int quietCheckEvasions   = 0;
+    int captureCheckEvasions = 0;
     // Loop through the moves until no moves remain or a beta cutoff occurs
     while ((move = mp.next_move()) != MOVE_NONE)
     {
@@ -1540,6 +1540,9 @@ moves_loop: // When in check, search starts here
                                                                 [capture]
                                                                 [pos.moved_piece(move)]
                                                                 [to_sq(move)];
+      
+      if (capture && ss->inCheck) 
+          captureCheckEvasions++;
 
       // Continuation history based pruning (~2 Elo)
       if (   !capture
@@ -1550,10 +1553,9 @@ moves_loop: // When in check, search starts here
 
       // movecount pruning for quiet check evasions
       if (   bestValue > VALUE_TB_LOSS_IN_MAX_PLY
-          && quietCheckEvasions > 1
-          && !capture
-          && ss->inCheck)
-          continue;
+          && quietCheckEvasions   > 1
+          && captureCheckEvasions > 0)
+          break;
 
       quietCheckEvasions += !capture && ss->inCheck;
 
