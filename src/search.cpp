@@ -309,7 +309,8 @@ void Thread::search() {
 
   complexityAverage.set(155, 1);
 
-  optimism[us] = optimism[~us] = VALUE_ZERO;
+  optimism[ us] = Value(37);
+  optimism[~us] = -optimism[us];
 
   int searchAgainCounter = 0;
 
