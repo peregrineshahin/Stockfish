@@ -1052,20 +1052,30 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
 
   Value v;
   Value psq = pos.psq_eg_stm();
+  Color stm = pos.side_to_move();
 
   // We use the much less accurate but faster Classical eval when the NNUE
   // option is set to false. Otherwise we use the NNUE eval unless the
   // PSQ advantage is decisive and several pieces remain. (~3 Elo)
   bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 && abs(psq) > 1760);
+  bool drawnPositions = ((   more_than_one(pos.pieces( stm, BISHOP) & DarkSquares) || more_than_one(pos.pieces( stm, BISHOP) & ~DarkSquares)
+                          || more_than_one(pos.pieces(~stm, BISHOP) & DarkSquares) || more_than_one(pos.pieces(~stm, BISHOP) & ~DarkSquares))
+                         && pos.count<ALL_PIECES>() == 4);
 
-  if (useClassical)
+
+  if (drawnPositions)
+  {
+      if (complexity)
+          *complexity = 0;
+      v = Value(0);
+  }
+  else if (useClassical)
       v = Evaluation<NO_TRACE>(pos).value();
   else
   {
       int nnueComplexity;
       int scale = 1064 + 106 * pos.non_pawn_material() / 5120;
 
-      Color stm = pos.side_to_move();
       Value optimism = pos.this_thread()->optimism[stm];
 
       Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
