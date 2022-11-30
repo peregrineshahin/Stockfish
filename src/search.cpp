@@ -1156,10 +1156,10 @@ moves_loop: // When in check, search starts here
           if (singularQuietLMR)
               r--;
 
-          // Dicrease reduction if we move a threatened piece (~1 Elo)
+          // Decrease reduction if we move a threatened piece (~1 Elo)
           if (   depth > 9
               && (mp.threatenedPieces & from_sq(move)))
-              r--;
+              r -= 1 + (capture && abs(pos.psq_eg_stm()) > 1000);
 
           // Increase reduction if next ply has a lot of fail high
           if ((ss+1)->cutoffCnt > 3 && !PvNode)
