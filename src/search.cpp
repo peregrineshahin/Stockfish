@@ -1161,6 +1161,9 @@ moves_loop: // When in check, search starts here
               && (mp.threatenedPieces & from_sq(move)))
               r--;
 
+          if (givesCheck && abs(pos.psq_eg_stm()) > 1400)
+              r--;
+
           // Increase reduction if next ply has a lot of fail high
           if ((ss+1)->cutoffCnt > 3 && !PvNode)
               r++;
