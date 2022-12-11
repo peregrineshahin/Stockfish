@@ -765,7 +765,8 @@ namespace {
     improvement =   (ss-2)->staticEval != VALUE_NONE ? ss->staticEval - (ss-2)->staticEval
                   : (ss-4)->staticEval != VALUE_NONE ? ss->staticEval - (ss-4)->staticEval
                   :                                    168;
-    improving = improvement > 0;
+    improvement = std::min(improvement, 0);
+    improving = bool(improvement);
 
     // Step 7. Razoring.
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
