@@ -1164,7 +1164,7 @@ moves_loop: // When in check, search starts here
               && (mp.threatenedPieces & from_sq(move)))
               {
                 r--;
-                dbg_mean_of(mp.threatenedPieces2 & from_sq(move));
+                dbg_mean_of(bool(mp.threatenedPieces2 & from_sq(move)));
               }
 
           // Increase reduction if next ply has a lot of fail high
