@@ -132,6 +132,7 @@ public:
   Move next_move(bool skipQuiets = false);
 
   Bitboard threatenedPieces;
+  Bitboard threatenedPieces2;
 
 private:
   template<PickType T, typename Pred> Move select(Pred);

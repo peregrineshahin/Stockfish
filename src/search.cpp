@@ -1162,7 +1162,10 @@ moves_loop: // When in check, search starts here
           // Decrease reduction if we move a threatened piece (~1 Elo)
           if (   depth > 9
               && (mp.threatenedPieces & from_sq(move)))
-              r--;
+              {
+                r--;
+                dbg_mean_of(mp.threatenedPieces2 & from_sq(move));
+              }
 
           // Increase reduction if next ply has a lot of fail high
           if ((ss+1)->cutoffCnt > 3)
