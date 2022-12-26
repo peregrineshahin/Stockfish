@@ -831,7 +831,7 @@ namespace {
             thisThread->nmpMinPly = 0;
 
             if (v >= beta)
-                return nullValue;
+                return v;
         }
     }
 
