@@ -800,29 +800,32 @@ namespace {
 
         // Null move dynamic reduction based on depth, eval and complexity of position
         Depth R = std::min(int(eval - beta) / 168, 7) + depth / 3 + 4 - (complexity > 861);
-
-        ss->currentMove = MOVE_NULL;
         ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
 
-        pos.do_null_move(st);
-
-        Value nullValue = -search<NonPV>(pos, ss+1, -beta, -beta+1, depth-R, !cutNode);
-
-        pos.undo_null_move();
-
-        if (nullValue >= beta)
+        if (depth < 14)
         {
-            // Do not return unproven mate or TB scores
-            if (nullValue >= VALUE_TB_WIN_IN_MAX_PLY)
-                nullValue = beta;
+            ss->currentMove = MOVE_NULL;
 
-            if (thisThread->nmpMinPly || (abs(beta) < VALUE_KNOWN_WIN && depth < 14))
-                return nullValue;
+            pos.do_null_move(st);
 
-            assert(!thisThread->nmpMinPly); // Recursive verification is not allowed
+            Value nullValue = -search<NonPV>(pos, ss+1, -beta, -beta+1, depth-R, !cutNode);
 
-            // Do verification search at high depths, with null move pruning disabled
-            // for us, until ply exceeds nmpMinPly.
+            pos.undo_null_move();
+
+            if (nullValue >= beta)
+            {
+                // Do not return unproven mate or TB scores
+                if (nullValue >= VALUE_TB_WIN_IN_MAX_PLY)
+                    nullValue = beta;
+
+                if (thisThread->nmpMinPly || (abs(beta) < VALUE_KNOWN_WIN))
+                    return nullValue;
+
+                assert(!thisThread->nmpMinPly); // Recursive verification is not allowed
+            }
+        }
+        else
+        {
             thisThread->nmpMinPly = ss->ply + 3 * (depth-R) / 4;
             thisThread->nmpColor = us;
 
@@ -830,8 +833,12 @@ namespace {
 
             thisThread->nmpMinPly = 0;
 
+            // Do not return unproven mate or TB scores
+            if (v >= VALUE_TB_WIN_IN_MAX_PLY)
+                v = beta;
+                
             if (v >= beta)
-                return nullValue;
+                return v;
         }
     }
 
