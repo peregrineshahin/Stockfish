@@ -995,7 +995,7 @@ moves_loop: // When in check, search starts here
               || givesCheck)
           {
               // Futility pruning for captures (~2 Elo)
-              if (   !givesCheck
+              if (   capture
                   && !PvNode
                   && lmrDepth < 7
                   && !ss->inCheck
