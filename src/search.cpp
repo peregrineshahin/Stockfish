@@ -1068,7 +1068,7 @@ moves_loop: // When in check, search starts here
                   // Avoid search explosion by limiting the number of double extensions
                   if (  !PvNode
                       && value < singularBeta - 25
-                      && ss->doubleExtensions <= 10)
+                      && ss->doubleExtensions <= 13)
                   {
                       extension = 2;
                       depth += depth < 12;
@@ -1182,7 +1182,10 @@ moves_loop: // When in check, search starts here
           // In general we want to cap the LMR depth search at newDepth, but when
           // reduction is negative, we allow this move a limited search extension
           // beyond the first move depth. This may lead to hidden double extensions.
-          Depth d = std::clamp(newDepth - r, 1, newDepth + 1);
+          Depth d = std::clamp(newDepth - r, 1, newDepth + (ss->doubleExtensions <= 8));
+
+          if (d > newDepth)
+            ss->doubleExtensions += 1;
 
           value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, d, true);
 
