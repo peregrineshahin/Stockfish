@@ -1018,6 +1018,7 @@ moves_loop: // When in check, search starts here
 
               // Continuation history based pruning (~2 Elo)
               if (   lmrDepth < 5
+                  && depth > 1
                   && history < -4180 * (depth - 1))
                   continue;
 
