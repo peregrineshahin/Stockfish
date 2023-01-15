@@ -720,14 +720,7 @@ namespace {
 
     // Step 6. Static evaluation of the position
     if (ss->inCheck)
-    {
-        // Skip early pruning when in check
-        ss->staticEval = eval = VALUE_NONE;
-        improving = false;
-        improvement = 0;
-        complexity = 0;
-        goto moves_loop;
-    }
+      ss->staticEval = eval = -((ss-1)->staticEval);
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
@@ -772,7 +765,7 @@ namespace {
     // Step 7. Razoring (~1 Elo).
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
-    if (eval < alpha - 394 - 255 * depth * depth)
+    if (!ss->inCheck && eval < alpha - 394 - 255 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
@@ -782,6 +775,7 @@ namespace {
     // Step 8. Futility pruning: child node (~40 Elo).
     // The depth condition is important for mate finding.
     if (   !ss->ttPv
+        && !ss->inCheck
         &&  depth < 8
         &&  eval - futility_margin(depth, improving) - (ss-1)->statScore / 304 >= beta
         &&  eval >= beta
@@ -790,6 +784,7 @@ namespace {
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (   !PvNode
+        && !ss->inCheck
         && (ss-1)->currentMove != MOVE_NULL
         && (ss-1)->statScore < 18200
         &&  eval >= beta
@@ -844,6 +839,7 @@ namespace {
     // If we have a good enough capture and a reduced search returns a value
     // much above beta, we can (almost) safely prune the previous move.
     if (   !PvNode
+        && !ss->inCheck 
         &&  depth > 4
         &&  abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
         // if value from transposition table is lower than probCutBeta, don't attempt probCut
@@ -892,19 +888,20 @@ namespace {
 
     // Step 11. If the position is not in TT, decrease depth by 3.
     // Use qsearch if depth is equal or below zero (~9 Elo)
-    if (    PvNode
-        && !ttMove)
-        depth -= 3;
+    if (!ss->inCheck)
+    {
+      if (    PvNode
+          && !ttMove)
+          depth -= 3;
 
-    if (depth <= 0)
-        return qsearch<PV>(pos, ss, alpha, beta);
+      if (depth <= 0)
+          return qsearch<PV>(pos, ss, alpha, beta);
 
-    if (    cutNode
-        &&  depth >= 9
-        && !ttMove)
-        depth -= 2;
-
-moves_loop: // When in check, search starts here
+      if (    cutNode
+          &&  depth >= 9
+          && !ttMove)
+          depth -= 2;
+    }
 
     // Step 12. A small Probcut idea, when we are in check (~4 Elo)
     probCutBeta = beta + 402;
