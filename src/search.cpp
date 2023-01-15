@@ -1694,11 +1694,7 @@ moves_loop: // When in check, search starts here
     
     // Increase stats for the best move in case it was a capture move
     if (pos.capture(bestMove))
-    {
-        captureHistory[moved_piece][to_sq(bestMove)][captured] << bonus1;
-        bonus1 /= 6;
-        bonus2 /= 6;
-    }
+      captureHistory[moved_piece][to_sq(bestMove)][captured] << bonus1;
     // Increase stats for the best move
     update_quiet_stats(pos, ss, bestMove, bonus2);
 
