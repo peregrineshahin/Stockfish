@@ -1699,7 +1699,7 @@ moves_loop: // When in check, search starts here
         bonus1 /= 6;
         bonus2 /= 6;
     }
-    // Increase stats for the best move in case it was a quiet move
+    // Increase stats for the best move
     update_quiet_stats(pos, ss, bestMove, bonus2);
 
     // Decrease stats for all non-best quiet moves
