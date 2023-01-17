@@ -790,51 +790,25 @@ namespace {
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (   !PvNode
-        && (ss-1)->currentMove != MOVE_NULL
         && (ss-1)->statScore < 18200
         &&  eval >= beta
         &&  eval >= ss->staticEval
         &&  ss->staticEval >= beta - 20 * depth - improvement / 14 + 235 + complexity / 24
         && !excludedMove
-        &&  pos.non_pawn_material(us)
-        && (ss->ply >= thisThread->nmpMinPly || us != thisThread->nmpColor))
+        &&  pos.non_pawn_material(us))
     {
         assert(eval - beta >= 0);
 
         // Null move dynamic reduction based on depth, eval and complexity of position
         Depth R = std::min(int(eval - beta) / 165, 6) + depth / 3 + 4 - (complexity > 800);
+        Value v = search<NonPV>(pos, ss+1, -beta, -beta+1, depth-R, !cutNode);
 
-        ss->currentMove = MOVE_NULL;
-        ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
-
-        pos.do_null_move(st);
-
-        Value nullValue = -search<NonPV>(pos, ss+1, -beta, -beta+1, depth-R, !cutNode);
-
-        pos.undo_null_move();
-
-        if (nullValue >= beta)
+        if (v >= beta)
         {
             // Do not return unproven mate or TB scores
-            if (nullValue >= VALUE_TB_WIN_IN_MAX_PLY)
-                nullValue = beta;
-
-            if (thisThread->nmpMinPly || (abs(beta) < VALUE_KNOWN_WIN && depth < 14))
-                return nullValue;
-
-            assert(!thisThread->nmpMinPly); // Recursive verification is not allowed
-
-            // Do verification search at high depths, with null move pruning disabled
-            // for us, until ply exceeds nmpMinPly.
-            thisThread->nmpMinPly = ss->ply + 3 * (depth-R) / 4;
-            thisThread->nmpColor = us;
-
-            Value v = search<NonPV>(pos, ss, beta-1, beta, depth-R, false);
-
-            thisThread->nmpMinPly = 0;
-
-            if (v >= beta)
-                return nullValue;
+            if (v >= VALUE_TB_WIN_IN_MAX_PLY)
+                v = beta;
+            return v;
         }
     }
 
