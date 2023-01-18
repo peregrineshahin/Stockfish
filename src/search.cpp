@@ -793,6 +793,7 @@ namespace {
         && (ss-1)->currentMove != MOVE_NULL
         && (ss-1)->statScore < 18200
         &&  eval >= beta
+        &&  pos.rule50_count() < 13
         &&  eval >= ss->staticEval
         &&  ss->staticEval >= beta - 20 * depth - improvement / 14 + 235 + complexity / 24
         && !excludedMove
