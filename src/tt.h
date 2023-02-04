@@ -67,11 +67,11 @@ private:
 
 class TranspositionTable {
 
-  static constexpr int ClusterSize = 3;
+  static constexpr int ClusterSize = 5;
 
   struct Cluster {
     TTEntry entry[ClusterSize];
-    char padding[28]; // Pad to 64 bytes
+    char padding[4]; // Pad to 64 bytes
   };
 
   static_assert(sizeof(Cluster) == 64, "Unexpected Cluster size");
