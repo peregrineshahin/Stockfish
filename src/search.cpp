@@ -471,7 +471,7 @@ void Thread::search() {
           double reduction = (1.4 + mainThread->previousTimeReduction) / (2.15 * timeReduction);
           double bestMoveInstability = 1 + 1.7 * totBestMoveChanges / Threads.size();
           int complexity = mainThread->complexityAverage.value();
-          double complexPosition = std::min(1.0 + (complexity - 261) / 1738.7, 1.5);
+          double complexPosition = std::clamp(1.0 + (complexity - 261) / 1738.7, 0.5, 1.5);
 
           double totalTime = Time.optimum() * fallingEval * reduction * bestMoveInstability * complexPosition;
 
@@ -742,7 +742,7 @@ namespace {
         if (eval == VALUE_NONE)
             ss->staticEval = eval = evaluate(pos, &complexity);
         else // Fall back to (semi)classical complexity for TT hits, the NNUE complexity is lost
-            complexity = abs(ss->staticEval - pos.psq_eg_stm());
+            complexity = ss->staticEval;
         thisThread->complexityAverage.update(complexity);
 
         // ttValue can be used as a better position evaluation (~7 Elo)
