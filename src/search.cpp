@@ -1220,7 +1220,7 @@ moves_loop: // When in check, search starts here
                   value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode);
 
               int bonus = value > alpha ?  stat_bonus(newDepth)
-                                        : -stat_bonus(newDepth);
+                                        : -stat_bonus(newDepth + (value < (alpha - 394 - 255 * depth * depth)));
 
               update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
           }
