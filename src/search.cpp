@@ -1457,13 +1457,6 @@ moves_loop: // When in check, search starts here
     ttMove = ss->ttHit ? tte->move() : MOVE_NONE;
     pvHit = ss->ttHit && tte->is_pv();
 
-    if (  !PvNode
-        && ss->ttHit
-        && tte->depth() >= ttDepth
-        && ttValue != VALUE_NONE // Only in case of TT access race
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
-        return ttValue;
-
     // Evaluate the position statically
     if (ss->inCheck)
     {
@@ -1474,6 +1467,12 @@ moves_loop: // When in check, search starts here
     {
         if (ss->ttHit)
         {
+            if (  !PvNode
+                && tte->depth() >= ttDepth
+                && ttValue != VALUE_NONE // Only in case of TT access race
+                && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+                return ttValue;
+
             // Never assume anything about values stored in TT
             if ((ss->staticEval = bestValue = tte->eval()) == VALUE_NONE)
                 ss->staticEval = bestValue = evaluate(pos);
