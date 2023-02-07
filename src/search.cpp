@@ -722,12 +722,22 @@ namespace {
     // Step 6. Static evaluation of the position
     if (ss->inCheck)
     {
-        // Skip early pruning when in check
-        ss->staticEval = eval = VALUE_NONE;
+        if (ss->ttHit && ttValue != VALUE_NONE)
+        {
+            ss->staticEval = eval = ttValue;
+            complexity = abs(ss->staticEval - pos.psq_eg_stm());
+            thisThread->complexityAverage.update(complexity);
+        }
+        else
+        {
+            ss->staticEval = eval = VALUE_NONE;
+            complexity = 0;
+        }
         improving = false;
         improvement = 0;
-        complexity = 0;
-        goto moves_loop;
+
+        // Skip early pruning when in check
+        goto moves_loop; 
     }
     else if (excludedMove) {
         // excludeMove implies that we had a ttHit on the containing non-excluded search with ss->staticEval filled from TT
