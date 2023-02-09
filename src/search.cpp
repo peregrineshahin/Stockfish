@@ -727,6 +727,20 @@ namespace {
         improving = false;
         improvement = 0;
         complexity = 0;
+
+        // A small Probcut idea, when we are in check (~4 Elo)
+        probCutBeta = beta + 402;
+        if (  !PvNode
+            && depth >= 2
+            && ttCapture
+            && (tte->bound() & BOUND_LOWER)
+            && tte->depth() >= depth - 3
+            && ttValue >= probCutBeta
+            && abs(ttValue) <= VALUE_KNOWN_WIN
+            && abs(beta) <= VALUE_KNOWN_WIN
+        )
+            return probCutBeta;
+
         goto moves_loop;
     }
     else if (excludedMove) {
@@ -910,21 +924,6 @@ namespace {
 
 moves_loop: // When in check, search starts here
 
-    // Step 12. A small Probcut idea, when we are in check (~4 Elo)
-    probCutBeta = beta + 402;
-    if (   ss->inCheck
-        && !PvNode
-        && depth >= 2
-        && ttCapture
-        && (tte->bound() & BOUND_LOWER)
-        && tte->depth() >= depth - 3
-        && ttValue >= probCutBeta
-        && abs(ttValue) <= VALUE_KNOWN_WIN
-        && abs(beta) <= VALUE_KNOWN_WIN
-       )
-        return probCutBeta;
-
-
     const PieceToHistory* contHist[] = { (ss-1)->continuationHistory, (ss-2)->continuationHistory,
                                           nullptr                   , (ss-4)->continuationHistory,
                                           nullptr                   , (ss-6)->continuationHistory };
@@ -947,7 +946,7 @@ moves_loop: // When in check, search starts here
                          && (tte->bound() & BOUND_UPPER)
                          && tte->depth() >= depth;
 
-    // Step 13. Loop through all pseudo-legal moves until no moves remain
+    // Step 12. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move(moveCountPruning)) != MOVE_NONE)
     {
@@ -987,7 +986,7 @@ moves_loop: // When in check, search starts here
 
       Value delta = beta - alpha;
 
-      // Step 14. Pruning at shallow depth (~120 Elo). Depth conditions are important for mate finding.
+      // Step 13. Pruning at shallow depth (~120 Elo). Depth conditions are important for mate finding.
       if (  !rootNode
           && pos.non_pawn_material(us)
           && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
@@ -1044,7 +1043,7 @@ moves_loop: // When in check, search starts here
           }
       }
 
-      // Step 15. Extensions (~100 Elo)
+      // Step 14. Extensions (~100 Elo)
       // We take care to not overdo to avoid search getting stuck.
       if (ss->ply < thisThread->rootDepth * 2)
       {
@@ -1130,7 +1129,7 @@ moves_loop: // When in check, search starts here
                                                                 [movedPiece]
                                                                 [to_sq(move)];
 
-      // Step 16. Make the move
+      // Step 15. Make the move
       pos.do_move(move, st, givesCheck);
 
       Depth r = reduction(improving, depth, moveCount, delta, thisThread->rootDelta);
@@ -1184,7 +1183,7 @@ moves_loop: // When in check, search starts here
       // Decrease/increase reduction for moves with a good/bad history (~30 Elo)
       r -= ss->statScore / (12800 + 4410 * (depth > 7 && depth < 19));
 
-      // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
+      // Step 16. Late moves reduction / extension (LMR, ~117 Elo)
       // We use various heuristics for the sons of a node after the first son has
       // been searched. In general we would like to reduce them, but there are many
       // cases where we extend a son if it has good chances to be "interesting".
@@ -1224,7 +1223,7 @@ moves_loop: // When in check, search starts here
           }
       }
 
-      // Step 18. Full depth search when LMR is skipped. If expected reduction is high, reduce its depth by 1.
+      // Step 17. Full depth search when LMR is skipped. If expected reduction is high, reduce its depth by 1.
       else if (!PvNode || moveCount > 1)
       {
                // Increase reduction for cut nodes and not ttMove (~1 Elo)
@@ -1245,12 +1244,12 @@ moves_loop: // When in check, search starts here
           value = -search<PV>(pos, ss+1, -beta, -alpha, newDepth, false);
       }
 
-      // Step 19. Undo move
+      // Step 18. Undo move
       pos.undo_move(move);
 
       assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
-      // Step 20. Check for a new best move
+      // Step 19. Check for a new best move
       // Finished searching the move. If a stop occurred, the return value of
       // the search cannot be trusted, and we return immediately without
       // updating best move, PV and TT.
@@ -1353,7 +1352,7 @@ moves_loop: // When in check, search starts here
         return VALUE_DRAW;
     */
 
-    // Step 21. Check for mate and stalemate
+    // Step 20. Check for mate and stalemate
     // All legal moves have been searched and if there are no legal moves, it
     // must be a mate or a stalemate. If we are in a singular extension search then
     // return a fail low score.
