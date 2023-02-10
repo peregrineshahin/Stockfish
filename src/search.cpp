@@ -618,6 +618,7 @@ namespace {
     // Step 4. Transposition table lookup.
     excludedMove = ss->excludedMove;
     posKey = pos.key();
+    ss->currentPosKey = posKey;
     tte = TT.probe(posKey, ss->ttHit);
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
@@ -1494,8 +1495,14 @@ moves_loop: // When in check, search starts here
         {
             // Save gathered info in transposition table
             if (!ss->ttHit)
+            {
                 tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
-                          DEPTH_NONE, MOVE_NONE, ss->staticEval);
+                      DEPTH_NONE, MOVE_NONE, ss->staticEval);
+                if (is_ok((ss-1)->currentMove))
+                    tte->save((ss-1)->currentPosKey, value_to_tt(-bestValue, ss->ply-1), false, BOUND_LOWER,
+                          DEPTH_NONE, (ss-1)->currentMove, (ss-1)->staticEval);
+
+            }   
 
             return bestValue;
         }
