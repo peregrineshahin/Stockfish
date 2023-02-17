@@ -532,7 +532,10 @@ namespace {
     {
         alpha = value_draw(pos.this_thread());
         if (alpha >= beta)
+        {
+            ss->isExpectedRepetition = true;
             return alpha;
+        }
     }
 
     // Dive into quiescence search when the depth reaches zero
@@ -559,13 +562,14 @@ namespace {
     int moveCount, captureCount, quietCount, improvement, complexity;
 
     // Step 1. Initialize node
-    Thread* thisThread = pos.this_thread();
-    ss->inCheck        = pos.checkers();
-    priorCapture       = pos.captured_piece();
-    Color us           = pos.side_to_move();
-    moveCount          = captureCount = quietCount = ss->moveCount = 0;
-    bestValue          = -VALUE_INFINITE;
-    maxValue           = VALUE_INFINITE;
+    Thread* thisThread         = pos.this_thread();
+    ss->inCheck                = pos.checkers();
+    ss->isExpectedRepetition   = false;
+    priorCapture               = pos.captured_piece();
+    Color us                   = pos.side_to_move();
+    moveCount                  = captureCount = quietCount = ss->moveCount = 0;
+    bestValue                  = -VALUE_INFINITE;
+    maxValue                   = VALUE_INFINITE;
 
     // Check for the available remaining time
     if (thisThread == Threads.main())
@@ -1144,6 +1148,10 @@ moves_loop: // When in check, search starts here
       // Decrease reduction if opponent's move count is high (~1 Elo)
       if ((ss-1)->moveCount > 7)
           r--;
+
+      // Decrease reduction if opponent expects a repetition
+      if ((ss-1)->isExpectedRepetition)
+          r -= 2;
 
       // Increase reduction for cut nodes (~3 Elo)
       if (cutNode)
