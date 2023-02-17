@@ -532,7 +532,10 @@ namespace {
     {
         alpha = value_draw(pos.this_thread());
         if (alpha >= beta)
+        {
+            ss->isExpectedRepetition = true;
             return alpha;
+        }
     }
 
     // Dive into quiescence search when the depth reaches zero
@@ -559,13 +562,14 @@ namespace {
     int moveCount, captureCount, quietCount, improvement, complexity;
 
     // Step 1. Initialize node
-    Thread* thisThread = pos.this_thread();
-    ss->inCheck        = pos.checkers();
-    priorCapture       = pos.captured_piece();
-    Color us           = pos.side_to_move();
-    moveCount          = captureCount = quietCount = ss->moveCount = 0;
-    bestValue          = -VALUE_INFINITE;
-    maxValue           = VALUE_INFINITE;
+    Thread* thisThread         = pos.this_thread();
+    ss->inCheck                = pos.checkers();
+    ss->isExpectedRepetition   = false;
+    priorCapture               = pos.captured_piece();
+    Color us                   = pos.side_to_move();
+    moveCount                  = captureCount = quietCount = ss->moveCount = 0;
+    bestValue                  = -VALUE_INFINITE;
+    maxValue                   = VALUE_INFINITE;
 
     // Check for the available remaining time
     if (thisThread == Threads.main())
@@ -1190,6 +1194,7 @@ moves_loop: // When in check, search starts here
       // cases where we extend a son if it has good chances to be "interesting".
       if (    depth >= 2
           &&  moveCount > 1 + (PvNode && ss->ply <= 1)
+          && !(ss-1)->isExpectedRepetition
           && (   !ss->ttPv
               || !capture
               || (cutNode && (ss-1)->moveCount > 1)))
