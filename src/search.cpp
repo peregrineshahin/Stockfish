@@ -1705,11 +1705,12 @@ moves_loop: // When in check, search starts here
     Piece moved_piece = pos.moved_piece(bestMove);
     PieceType captured = type_of(pos.piece_on(to_sq(bestMove)));
     int bonus1 = stat_bonus(depth + 1);
+    bool priorCapture = pos.captured_piece();
 
     if (!pos.capture(bestMove))
     {
-        int bonus2 = bestValue > beta + 146 ? bonus1               // larger bonus
-                                            : stat_bonus(depth);   // smaller bonus
+        int bonus2 = bestValue > (beta + 90 + 64 * !priorCapture)  ? bonus1               // larger bonus
+                                                                   : stat_bonus(depth);   // smaller bonus
 
         // Increase stats for the best move in case it was a quiet move
         update_quiet_stats(pos, ss, bestMove, bonus2);
