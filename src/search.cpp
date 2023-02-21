@@ -1175,6 +1175,11 @@ moves_loop: // When in check, search starts here
           && (*contHist[0])[movedPiece][to_sq(move)] >= 3600)
           r--;
 
+      // Decrease reduction if not ttMove and we have a good history
+      if (!ttMove
+          && (*contHist[0])[movedPiece][to_sq(move)] >= 7000)
+          r--;
+
       ss->statScore =  2 * thisThread->mainHistory[us][from_to(move)]
                      + (*contHist[0])[movedPiece][to_sq(move)]
                      + (*contHist[1])[movedPiece][to_sq(move)]
