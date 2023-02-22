@@ -988,7 +988,7 @@ moves_loop: // When in check, search starts here
       Value delta = beta - alpha;
 
       Depth r = reduction(improving, depth, moveCount, delta, thisThread->rootDelta);
-
+      int movesSearched = 0;
       // Step 14. Pruning at shallow depth (~120 Elo). Depth conditions are important for mate finding.
       if (  !rootNode
           && pos.non_pawn_material(us)
@@ -1013,7 +1013,7 @@ moves_loop: // When in check, search starts here
                   continue;
 
               // SEE based pruning (~11 Elo)
-              if (!pos.see_ge(move, Value(-220) * depth))
+              if (!pos.see_ge(move, Value(-220) * depth) && movesSearched >= 2)
                   continue;
           }
           else
@@ -1244,6 +1244,8 @@ moves_loop: // When in check, search starts here
 
           value = -search<PV>(pos, ss+1, -beta, -alpha, newDepth, false);
       }
+
+      movesSearched++;
 
       // Step 19. Undo move
       pos.undo_move(move);
