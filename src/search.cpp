@@ -947,6 +947,7 @@ moves_loop: // When in check, search starts here
                          && (tte->bound() & BOUND_UPPER)
                          && tte->depth() >= depth;
 
+    bool searchedFirstKiller = false;
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move(moveCountPruning)) != MOVE_NONE)
@@ -1172,6 +1173,15 @@ moves_loop: // When in check, search starts here
 
       // Decrease reduction if move is a killer and we have a good history
       if (move == ss->killers[0]
+          && (*contHist[0])[movedPiece][to_sq(move)] >= 3600)
+      {
+          searchedFirstKiller = true;
+          r--;
+      }
+
+      if (    searchedFirstKiller
+          &&  ss->killers[0] != ss->killers[1]
+          &&  move == ss->killers[1]
           && (*contHist[0])[movedPiece][to_sq(move)] >= 3600)
           r--;
 
