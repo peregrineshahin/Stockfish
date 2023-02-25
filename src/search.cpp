@@ -523,6 +523,9 @@ namespace {
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
+    if (rootNode)
+        Eval::NNUE::hint_common_parent_position(pos);
+
     // Check if we have an upcoming move which draws by repetition, or
     // if the opponent had an alternative move earlier to this position.
     if (   !rootNode
