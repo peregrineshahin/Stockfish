@@ -621,7 +621,7 @@ namespace {
     tte = TT.probe(posKey, ss->ttHit);
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
-            : ss->ttHit    ? tte->move() : MOVE_NONE;
+            : ss->ttHit && !excludedMove   ? tte->move() : MOVE_NONE;
     ttCapture = ttMove && pos.capture(ttMove);
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
@@ -1418,7 +1418,7 @@ moves_loop: // When in check, search starts here
 
     TTEntry* tte;
     Key posKey;
-    Move ttMove, move, bestMove;
+    Move ttMove, move, bestMove, excludedMove;
     Depth ttDepth;
     Value bestValue, value, ttValue, futilityValue, futilityBase;
     bool pvHit, givesCheck, capture;
@@ -1434,6 +1434,7 @@ moves_loop: // When in check, search starts here
     Thread* thisThread = pos.this_thread();
     bestMove = MOVE_NONE;
     ss->inCheck = pos.checkers();
+    excludedMove = ss->excludedMove;
     moveCount = 0;
 
     // Step 2. Check for an immediate draw or maximum ply reached
@@ -1452,7 +1453,7 @@ moves_loop: // When in check, search starts here
     posKey = pos.key();
     tte = TT.probe(posKey, ss->ttHit);
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
-    ttMove = ss->ttHit ? tte->move() : MOVE_NONE;
+    ttMove = ss->ttHit && !excludedMove ? tte->move() : MOVE_NONE;
     pvHit = ss->ttHit && tte->is_pv();
 
     // At non-PV nodes we check for an early TT cutoff
