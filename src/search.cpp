@@ -1120,7 +1120,7 @@ moves_loop: // When in check, search starts here
           // Quiet ttMove extensions (~1 Elo)
           else if (   PvNode
                    && move == ttMove
-                   && move == ss->killers[0]
+                   && (move == ss->killers[0] || (type_of(move) == PROMOTION && promotion_type(move) != QUEEN))
                    && (*contHist[0])[movedPiece][to_sq(move)] >= 5705)
               extension = 1;
       }
