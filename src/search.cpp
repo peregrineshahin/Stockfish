@@ -1112,7 +1112,7 @@ moves_loop: // When in check, search starts here
           }
 
           // Check extensions (~1 Elo)
-          else if (   givesCheck
+          else if ((givesCheck || (type_of(move) == PROMOTION && promotion_type(move) == QUEEN))
                    && depth > 10
                    && abs(ss->staticEval) > 88)
               extension = 1;
