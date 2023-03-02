@@ -823,6 +823,8 @@ namespace {
         Value nullValue = -search<NonPV>(pos, ss+1, -beta, -beta+1, depth-R, !cutNode);
 
         pos.undo_null_move();
+        
+        Eval::NNUE::hint_common_parent_position(pos);
 
         if (nullValue >= beta)
         {
