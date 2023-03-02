@@ -142,7 +142,7 @@ namespace Stockfish::Eval::NNUE {
   }
 
   // Evaluation function. Perform differential calculation.
-  Value evaluate(const Position& pos, bool adjusted, int* complexity) {
+  Value evaluate(const Position& pos, bool adjusted, int* complexity, int* nnuePositional) {
 
     // We manually align the arrays on the stack because with gcc < 9.3
     // overaligning stack variables with alignas() doesn't work correctly.
@@ -168,6 +168,9 @@ namespace Stockfish::Eval::NNUE {
 
     if (complexity)
         *complexity = abs(psqt - positional) / OutputScale;
+    
+    if (nnuePositional)
+       *nnuePositional = positional/OutputScale;
 
     // Give more value to positional evaluation when adjusted flag is set
     if (adjusted)
