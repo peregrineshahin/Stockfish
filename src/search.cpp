@@ -847,6 +847,12 @@ namespace {
             if (v >= beta)
                 return nullValue;
         }
+        else if (nullValue < alpha - 426 - 252 * depth * depth)
+        {
+            value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+            if (value < alpha)
+                return value;
+        }
     }
 
     probCutBeta = beta + 186 - 54 * improving;
