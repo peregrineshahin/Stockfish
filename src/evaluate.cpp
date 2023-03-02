@@ -1067,12 +1067,12 @@ Value Eval::evaluate(const Position& pos, int* complexity) {
 
       Color stm = pos.side_to_move();
       Value optimism = pos.this_thread()->optimism[stm];
-
-      Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
+      int nnuePositional;
+      Value nnue = NNUE::evaluate(pos, true, &nnueComplexity, &nnuePositional);
 
       // Blend nnue complexity with (semi)classical complexity
       nnueComplexity = (  406 * nnueComplexity
-                        + (424 + optimism) * abs(psq - nnue)
+                        + (424 + optimism) * abs(nnuePositional)
                         ) / 1024;
 
       // Return hybrid NNUE complexity to caller
