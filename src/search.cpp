@@ -719,7 +719,7 @@ namespace {
     }
 
     CapturePieceToHistory& captureHistory = thisThread->captureHistory;
-
+    int psq = pos.psq_eg_stm();
     // Step 6. Static evaluation of the position
     if (ss->inCheck)
     {
@@ -733,9 +733,10 @@ namespace {
     else if (excludedMove)
     {
         // Providing the hint that this node's accumulator will be used often brings significant Elo gain (13 elo)
-        Eval::NNUE::hint_common_parent_position(pos);
+        if (abs(psq) <= 1781 || pos.count<ALL_PIECES>() < 7)
+            Eval::NNUE::hint_common_parent_position(pos);
         eval = ss->staticEval;
-        complexity = abs(ss->staticEval - pos.psq_eg_stm());
+        complexity = abs(ss->staticEval - psq);
     }
     else if (ss->ttHit)
     {
@@ -746,7 +747,7 @@ namespace {
         else // Fall back to (semi)classical complexity for TT hits, the NNUE complexity is lost
         {
             complexity = abs(ss->staticEval - pos.psq_eg_stm());
-            if (PvNode)
+            if (PvNode && (abs(psq) <= 1781 || pos.count<ALL_PIECES>() < 7))
                Eval::NNUE::hint_common_parent_position(pos);
         }
 
@@ -899,8 +900,8 @@ namespace {
                     return value;
                 }
             }
-
-        Eval::NNUE::hint_common_parent_position(pos);
+        if (abs(pos.psq_eg_stm()) <= 1781 || pos.count<ALL_PIECES>() < 7)
+            Eval::NNUE::hint_common_parent_position(pos);
     }
 
     // Step 11. If the position is not in TT, decrease depth by 3.
