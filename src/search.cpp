@@ -1254,6 +1254,11 @@ moves_loop: // When in check, search starts here
           (ss+1)->pv[0] = MOVE_NONE;
 
           value = -search<PV>(pos, ss+1, -beta, -alpha, newDepth, false);
+
+          int pvBonus = value > alpha ?  stat_bonus(newDepth)
+                                      : -stat_bonus(newDepth);
+
+          update_continuation_histories(ss, movedPiece, to_sq(move), pvBonus);
       }
 
       // Step 19. Undo move
