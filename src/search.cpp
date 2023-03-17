@@ -1052,6 +1052,11 @@ moves_loop: // When in check, search starts here
           }
       }
 
+      tte = TT.probe(posKey, ss->ttHit);
+      ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
+      ttMove = ss->ttHit  ? tte->move() : MOVE_NONE;
+      ttCapture = ttMove && pos.capture_stage(ttMove);
+
       // Step 15. Extensions (~100 Elo)
       // We take care to not overdo to avoid search getting stuck.
       if (ss->ply < thisThread->rootDepth * 2)
