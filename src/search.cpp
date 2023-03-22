@@ -82,6 +82,7 @@ namespace {
 
   // History and stats update bonus, based on depth
   int stat_bonus(Depth d) {
+    dbg_mean_of(d == 1);
     return std::min(340 * d - 470, 1855);
   }
 
