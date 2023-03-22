@@ -960,9 +960,6 @@ moves_loop: // When in check, search starts here
     {
       assert(is_ok(move));
 
-      if (move == excludedMove)
-          continue;
-
       // At root obey the "searchmoves" option and skip moves not listed in Root
       // Move List. As a consequence any illegal move is also skipped. In MultiPV
       // mode we also skip PV moves which have been already searched and those
@@ -976,6 +973,9 @@ moves_loop: // When in check, search starts here
           continue;
 
       ss->moveCount = ++moveCount;
+
+      if (move == excludedMove)
+          continue;
 
       if (rootNode && thisThread == Threads.main() && Time.elapsed() > 3000)
           sync_cout << "info depth " << depth
