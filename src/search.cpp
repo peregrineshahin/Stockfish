@@ -1138,6 +1138,13 @@ moves_loop: // When in check, search starts here
                    && move == ss->killers[0]
                    && (*contHist[0])[movedPiece][to_sq(move)] >= 5705)
               extension = 1;
+
+          // Extension for king moves that is not castling and that change castling rights
+          else if (   type_of(movedPiece) == KING
+                   && type_of(move) != CASTLING
+                   && pos.castling_rights(us)
+                   && depth < 12)
+              extension = 1;
       }
 
       // Add extension to new depth
