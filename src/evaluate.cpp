@@ -1051,7 +1051,7 @@ make_v:
 Value Eval::evaluate(const Position& pos, int* complexity) {
 
   Value v;
-  Value psq = pos.psq_eg_stm();
+  Value psq = pos.psq_mg_stm();
 
   // We use the much less accurate but faster Classical eval when the NNUE
   // option is set to false. Otherwise we use the NNUE eval unless the
