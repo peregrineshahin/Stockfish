@@ -1051,13 +1051,14 @@ make_v:
 Value Eval::evaluate(const Position& pos, int* complexity) {
 
   Value v;
-  Value psq = pos.psq_eg_stm();
+  Value psq = pos.psq_mg_stm();
 
   // We use the much less accurate but faster Classical eval when the NNUE
   // option is set to false. Otherwise we use the NNUE eval unless the
   // PSQ advantage is decisive and several pieces remain. (~3 Elo)
   bool useClassical = !useNNUE || (pos.count<ALL_PIECES>() > 7 && abs(psq) > 1781);
 
+  dbg_mean_of(useClassical);
   if (useClassical)
       v = Evaluation<NO_TRACE>(pos).value();
   else
