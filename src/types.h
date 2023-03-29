@@ -304,6 +304,12 @@ inline Value mg_value(Score s) {
   return Value(mg.s);
 }
 
+inline Value extracted_signed_value(Score s) {
+    Value eg = eg_value(s);
+    int sign = (eg > 0) - (eg < 0);
+    return Value(sign * (mg_value(s)));
+}
+
 #define ENABLE_BASE_OPERATORS_ON(T)                                \
 constexpr T operator+(T d1, int d2) { return T(int(d1) + d2); }    \
 constexpr T operator-(T d1, int d2) { return T(int(d1) - d2); }    \
