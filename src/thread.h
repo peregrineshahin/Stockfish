@@ -62,8 +62,7 @@ public:
   size_t pvIdx, pvLast;
   RunningAverage complexityAverage;
   std::atomic<uint64_t> nodes, tbHits, bestMoveChanges;
-  int selDepth, nmpMinPly;
-  Color nmpColor;
+  int selDepth;
   Value bestValue, optimism[COLOR_NB];
 
   Position rootPos;
