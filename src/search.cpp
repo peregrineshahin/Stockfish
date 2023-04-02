@@ -726,6 +726,19 @@ namespace {
         improving = false;
         improvement = 0;
         complexity = 0;
+
+        // A small Probcut idea, when we are in check (~4 Elo)
+        probCutBeta = beta + 391;
+        if (   !PvNode
+            && depth >= 2
+            && ttCapture
+            && (tte->bound() & BOUND_LOWER)
+            && tte->depth() >= depth - 3
+            && ttValue >= probCutBeta
+            && abs(ttValue) <= VALUE_KNOWN_WIN
+            && abs(beta) <= VALUE_KNOWN_WIN)
+            return probCutBeta;
+
         goto moves_loop;
     }
     else if (excludedMove)
@@ -914,19 +927,6 @@ namespace {
         depth -= 2;
 
 moves_loop: // When in check, search starts here
-
-    // Step 12. A small Probcut idea, when we are in check (~4 Elo)
-    probCutBeta = beta + 391;
-    if (   ss->inCheck
-        && !PvNode
-        && depth >= 2
-        && ttCapture
-        && (tte->bound() & BOUND_LOWER)
-        && tte->depth() >= depth - 3
-        && ttValue >= probCutBeta
-        && abs(ttValue) <= VALUE_KNOWN_WIN
-        && abs(beta) <= VALUE_KNOWN_WIN)
-        return probCutBeta;
 
     const PieceToHistory* contHist[] = { (ss-1)->continuationHistory, (ss-2)->continuationHistory,
                                           nullptr                   , (ss-4)->continuationHistory,
