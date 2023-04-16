@@ -561,7 +561,7 @@ namespace {
     bool givesCheck, improving, priorCapture, singularQuietLMR;
     bool capture, moveCountPruning, ttCapture;
     Piece movedPiece;
-    int moveCount, captureCount, quietCount, improvement, complexity;
+    int moveCount, captureCount, quietCount, improvement, opponentImprovement, complexity;
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
@@ -723,6 +723,7 @@ namespace {
         ss->staticEval = eval = VALUE_NONE;
         improving = false;
         improvement = 0;
+        opponentImprovement = 1;
         complexity = 0;
         goto moves_loop;
     }
@@ -769,10 +770,14 @@ namespace {
     // static evaluation and the previous static evaluation at our turn (if we were
     // in check at our previous move we look at the move prior to it). The improvement
     // margin and the improving flag are used in various pruning heuristics.
-    improvement =   (ss-2)->staticEval != VALUE_NONE ? ss->staticEval - (ss-2)->staticEval
-                  : (ss-4)->staticEval != VALUE_NONE ? ss->staticEval - (ss-4)->staticEval
-                  :                                    156;
-    improving = improvement > 0;
+    improvement =           (ss-2)->staticEval != VALUE_NONE ? ss->staticEval - (ss-2)->staticEval
+                          : (ss-4)->staticEval != VALUE_NONE ? ss->staticEval - (ss-4)->staticEval
+                          :                                    156;
+
+    opponentImprovement =   (ss-1)->staticEval != VALUE_NONE && (ss-3)->staticEval != VALUE_NONE ? (ss-1)->staticEval - (ss-3)->staticEval
+                          : (ss-1)->staticEval != VALUE_NONE && (ss-5)->staticEval != VALUE_NONE ? (ss-1)->staticEval - (ss-5)->staticEval
+                          :                                    -156;
+    improving = improvement > 0 && opponentImprovement < 0;
 
     // Step 7. Razoring (~1 Elo).
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
