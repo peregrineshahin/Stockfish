@@ -786,9 +786,10 @@ namespace {
         &&  ss->staticEval >= beta - 20 * depth - improvement / 13 + 253
         && !excludedMove
         &&  pos.non_pawn_material(us)
-        && (ss->ply >= thisThread->nmpMinPly))
+        && !thisThread->nmpMinPly)
     {
         assert(eval - beta >= 0);
+        assert(!thisThread->nmpMinPly && (ss-1)->currentMove != MOVE_NULL); // Recursive NMS and verification is not allowed
 
         // Null move dynamic reduction based on depth and eval
         Depth R = std::min(int(eval - beta) / 172, 6) + depth / 3 + 4;
@@ -807,11 +808,6 @@ namespace {
             // Do not return unproven mate or TB scores
             if (nullValue >= VALUE_TB_WIN_IN_MAX_PLY)
                 nullValue = beta;
-
-            if (thisThread->nmpMinPly || (abs(beta) < VALUE_KNOWN_WIN && depth < 14))
-                return nullValue;
-
-            assert(!thisThread->nmpMinPly); // Recursive verification is not allowed
 
             // Do verification search at high depths, with null move pruning disabled
             // until ply exceeds nmpMinPly.
