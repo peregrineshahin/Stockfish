@@ -1450,6 +1450,11 @@ moves_loop: // When in check, search starts here
     // Step 3. Transposition table lookup
     posKey = pos.key();
     tte = TT.probe(posKey, ss->ttHit);
+  
+    if (   pos.rule50_count() > 12
+        && uint8_t(thisThread->nodes.load(std::memory_order_relaxed)) * ((100 - pos.rule50_count()) / 8) >> 8 == 0)
+        ss->ttHit = false;
+
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove = ss->ttHit ? tte->move() : MOVE_NONE;
     pvHit = ss->ttHit && tte->is_pv();
