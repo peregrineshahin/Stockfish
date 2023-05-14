@@ -782,7 +782,7 @@ namespace {
         &&  eval >= ss->staticEval
         &&  ss->staticEval >= beta - 20 * depth - improvement / 13 + 253
         && !excludedMove
-        &&  pos.non_pawn_material(us)
+        &&  pos.non_pawn_material(us) > BishopValueMg
         && (ss->ply >= thisThread->nmpMinPly))
     {
         assert(eval - beta >= 0);
