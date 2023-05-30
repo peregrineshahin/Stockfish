@@ -802,7 +802,7 @@ namespace {
         {
             // Do not return unproven mate or TB scores
             if (nullValue >= VALUE_TB_WIN_IN_MAX_PLY)
-                nullValue = beta;
+                nullValue = VALUE_TB_WIN_IN_MAX_PLY - 1;
 
             if (thisThread->nmpMinPly || (abs(beta) < VALUE_KNOWN_WIN && depth < 14))
                 return nullValue;
