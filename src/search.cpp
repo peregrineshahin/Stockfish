@@ -779,6 +779,7 @@ namespace {
         && (ss-1)->statScore < 18404
         &&  eval >= beta
         &&  eval >= ss->staticEval
+        &&  eval < VALUE_TB_WIN_IN_MAX_PLY
         &&  ss->staticEval >= beta - 19 * depth - improvement / 13 + 257
         && !excludedMove
         &&  pos.non_pawn_material(us)
