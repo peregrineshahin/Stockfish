@@ -870,6 +870,7 @@ namespace {
 
                 pos.do_move(move, st);
 
+                dbg_mean_of(std::abs(probCutBeta) == VALUE_NONE);
                 // Perform a preliminary qsearch to verify that the move holds
                 value = -qsearch<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1);
 
