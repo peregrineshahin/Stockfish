@@ -770,6 +770,7 @@ namespace {
         &&  depth < 9
         &&  eval - futility_margin(depth, improving) - (ss-1)->statScore / 306 >= beta
         &&  eval >= beta
+        &&  thisThread->rootMoves[0].previousScore < 686
         &&  eval < 24923) // larger than VALUE_KNOWN_WIN, but smaller than TB wins
         return eval;
 
@@ -782,6 +783,7 @@ namespace {
         &&  ss->staticEval >= beta - 21 * depth - improvement * 99 / 1300 + 258
         && !excludedMove
         &&  pos.non_pawn_material(us)
+        &&  thisThread->rootMoves[0].previousScore < 686
         && (ss->ply >= thisThread->nmpMinPly))
     {
         assert(eval - beta >= 0);
