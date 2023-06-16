@@ -705,6 +705,8 @@ namespace {
     // Step 6. Static evaluation of the position
     if (ss->inCheck)
     {
+        if (PvNode)
+            Eval::NNUE::hint_common_parent_position(pos);
         // Skip early pruning when in check
         ss->staticEval = eval = VALUE_NONE;
         improving = false;
