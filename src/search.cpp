@@ -630,7 +630,7 @@ namespace {
                     update_quiet_stats(pos, ss, ttMove, stat_bonus(depth));
 
                 // Extra penalty for early quiet moves of the previous ply (~0 Elo on STC, ~2 Elo on LTC)
-                if (prevSq != SQ_NONE && (ss-1)->moveCount <= 2 && !priorCapture)
+                if (prevSq != SQ_NONE && (ss-1)->moveCount <= 2 && !(ss-1)->inCheck && !priorCapture)
                     update_continuation_histories(ss-1, pos.piece_on(prevSq), prevSq, -stat_bonus(depth + 1));
             }
             // Penalty for a quiet ttMove that fails low (~1 Elo)
@@ -638,7 +638,8 @@ namespace {
             {
                 int penalty = -stat_bonus(depth);
                 thisThread->mainHistory[us][from_to(ttMove)] << penalty;
-                update_continuation_histories(ss, pos.moved_piece(ttMove), to_sq(ttMove), penalty);
+                if (!ss->inCheck)
+                    update_continuation_histories(ss, pos.moved_piece(ttMove), to_sq(ttMove), penalty);
             }
         }
 
@@ -1216,8 +1217,8 @@ moves_loop: // When in check, search starts here
               int bonus = value <= alpha ? -stat_bonus(newDepth)
                         : value >= beta  ?  stat_bonus(newDepth)
                                          :  0;
-
-              update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
+              if (!ss->inCheck)
+                  update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
           }
       }
 
@@ -1370,7 +1371,7 @@ moves_loop: // When in check, search starts here
                          quietsSearched, quietCount, capturesSearched, captureCount, depth);
 
     // Bonus for prior countermove that caused the fail low
-    else if (!priorCapture && prevSq != SQ_NONE)
+    else if (prevSq != SQ_NONE && !ss->inCheck && !priorCapture)
     {
         int bonus = (depth > 5) + (PvNode || cutNode) + (bestValue < alpha - 113 * depth) + ((ss-1)->moveCount > 12);
         update_continuation_histories(ss-1, pos.piece_on(prevSq), prevSq, stat_bonus(depth) * bonus);
@@ -1713,7 +1714,8 @@ moves_loop: // When in check, search starts here
         for (int i = 0; i < quietCount; ++i)
         {
             thisThread->mainHistory[us][from_to(quietsSearched[i])] << -bonus2;
-            update_continuation_histories(ss, pos.moved_piece(quietsSearched[i]), to_sq(quietsSearched[i]), -bonus2);
+            if (!ss->inCheck)
+                update_continuation_histories(ss, pos.moved_piece(quietsSearched[i]), to_sq(quietsSearched[i]), -bonus2);
         }
     }
     else
@@ -1726,6 +1728,7 @@ moves_loop: // When in check, search starts here
     // Extra penalty for a quiet early move that was not a TT move or
     // main killer move in previous ply when it gets refuted.
     if (   prevSq != SQ_NONE
+        && !(ss-1)->inCheck
         && ((ss-1)->moveCount == 1 + (ss-1)->ttHit || ((ss-1)->currentMove == (ss-1)->killers[0]))
         && !pos.captured_piece())
             update_continuation_histories(ss-1, pos.piece_on(prevSq), prevSq, -bonus1);
@@ -1747,9 +1750,6 @@ moves_loop: // When in check, search starts here
 
     for (int i : {1, 2, 4, 6})
     {
-        // Only update first 2 continuation histories if we are in check
-        if (ss->inCheck && i > 2)
-            break;
         if (is_ok((ss-i)->currentMove))
             (*(ss-i)->continuationHistory)[pc][to] << bonus;
     }
@@ -1770,7 +1770,8 @@ moves_loop: // When in check, search starts here
     Color us = pos.side_to_move();
     Thread* thisThread = pos.this_thread();
     thisThread->mainHistory[us][from_to(move)] << bonus;
-    update_continuation_histories(ss, pos.moved_piece(move), to_sq(move), bonus);
+    if (!ss->inCheck)    
+        update_continuation_histories(ss, pos.moved_piece(move), to_sq(move), bonus);
 
     // Update countermove history
     if (is_ok((ss-1)->currentMove))
