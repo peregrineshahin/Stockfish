@@ -802,7 +802,7 @@ namespace {
         {
             // Do not return unproven mate or TB scores
             nullValue = std::min(nullValue, VALUE_TB_WIN_IN_MAX_PLY-1);
-
+            dbg_mean_of(nullValue <= VALUE_TB_LOSS_IN_MAX_PLY);
             if (thisThread->nmpMinPly || depth < 14)
                 return nullValue;
 
