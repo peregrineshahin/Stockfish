@@ -82,7 +82,7 @@ namespace {
 
   // History and stats update bonus, based on depth
   int stat_bonus(Depth d) {
-    return std::min(336 * d - 547, 1561);
+    return std::min(336 * d - 336, 1561);
   }
 
   // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -1743,14 +1743,16 @@ moves_loop: // When in check, search starts here
   // by moves at ply -1, -2, -4, and -6 with current move.
 
   void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
-
-    for (int i : {1, 2, 4, 6})
+    if (bonus != 0)  
     {
-        // Only update first 2 continuation histories if we are in check
-        if (ss->inCheck && i > 2)
-            break;
-        if (is_ok((ss-i)->currentMove))
-            (*(ss-i)->continuationHistory)[pc][to] << bonus;
+        for (int i : {1, 2, 4, 6})
+        {
+            // Only update first 2 continuation histories if we are in check
+            if (ss->inCheck && i > 2)
+                break;
+            if (is_ok((ss-i)->currentMove))
+                (*(ss-i)->continuationHistory)[pc][to] << bonus;
+        }
     }
   }
 
