@@ -733,7 +733,11 @@ namespace {
     }
     else
     {
-        ss->staticEval = eval = evaluate(pos);
+        if ((ss-1)->currentMove != MOVE_NULL)
+            ss->staticEval = eval = evaluate(pos);
+        else
+            ss->staticEval = eval = -(ss-1)->staticEval;
+
         // Save static evaluation into transposition table
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
     }
