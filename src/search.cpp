@@ -925,6 +925,7 @@ moves_loop: // When in check, search starts here
                          && (tte->bound() & BOUND_UPPER)
                          && tte->depth() >= depth;
 
+    int scoreImprovements = 0;
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move(moveCountPruning)) != MOVE_NONE)
@@ -1219,6 +1220,8 @@ moves_loop: // When in check, search starts here
               int bonus = value <= alpha ? -stat_bonus(newDepth)
                         : value >= beta  ?  stat_bonus(newDepth)
                                          :  0;
+              if (PvNode && depth < 18)
+                  bonus += bonus * scoreImprovements / 12;
 
               update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
           }
@@ -1328,6 +1331,8 @@ moves_loop: // When in check, search starts here
                       && beta  <  14362
                       && value > -12393)
                       depth -= 2;
+
+                  scoreImprovements++;
 
                   assert(depth > 0);
                   alpha = value; // Update alpha! Always alpha < beta
