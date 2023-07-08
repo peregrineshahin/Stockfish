@@ -875,7 +875,11 @@ namespace {
 
                 // If the qsearch held, perform the regular search
                 if (value >= probCutBeta)
+                {
                     value = -search<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1, depth - 4, !cutNode);
+                    if (depth == 4)
+                        value = -search<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1, depth - 4, !cutNode);
+                }
 
                 pos.undo_move(move);
 
