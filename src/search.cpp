@@ -1340,6 +1340,7 @@ moves_loop: // When in check, search starts here
       // If the move is worse than some previously searched move, remember it, to update its stats later
       if (move != bestMove)
       {
+          dbg_mean_of(captureCount >= 32 || quietCount >= 64);
           if (capture && captureCount < 32)
               capturesSearched[captureCount++] = move;
 
