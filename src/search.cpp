@@ -1647,7 +1647,10 @@ moves_loop: // When in check, search starts here
     assert(v != VALUE_NONE);
 
     return  v >= VALUE_TB_WIN_IN_MAX_PLY  ? v + ply
-          : v <= VALUE_TB_LOSS_IN_MAX_PLY ? v - ply : v;
+          : v <= VALUE_TB_LOSS_IN_MAX_PLY ? v - ply
+          : v > 0 ? v-1
+          : v < 0 ? v+1
+          :         v;
   }
 
 
