@@ -32,6 +32,7 @@ namespace Eval {
 
   std::string trace(Position& pos);
   Value evaluate(const Position& pos);
+  Color trapped_rook(const Position& pos);
 
   extern std::string currentEvalFileName;
 

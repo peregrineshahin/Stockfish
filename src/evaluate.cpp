@@ -137,6 +137,51 @@ namespace Eval {
   }
 }
 
+
+Color Eval::trapped_rook(const Position& pos) {
+  if (     (pos.pieces(WHITE, ROOK) & relative_square(WHITE, SQ_A3))
+        && (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_A2))
+        && (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_C3))
+        && (pos.pieces(BLACK, PAWN) & relative_square(WHITE, SQ_A4))
+        && (pos.pieces(BLACK, PAWN) & relative_square(WHITE, SQ_C4))
+        && (   (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_B5))
+            || (pos.pieces(WHITE, BISHOP) & relative_square(WHITE, SQ_B5))
+            || (pos.pieces(WHITE, BISHOP) & relative_square(WHITE, SQ_C6))))
+            return WHITE;
+      
+  if (     (pos.pieces(WHITE, ROOK) & relative_square(WHITE, SQ_H3))
+        && (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_H2))
+        && (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_F3))
+        && (pos.pieces(BLACK, PAWN) & relative_square(WHITE, SQ_H5))
+        && (pos.pieces(BLACK, PAWN) & relative_square(WHITE, SQ_F4))
+        && (   (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_G5))
+            || (pos.pieces(WHITE, BISHOP) & relative_square(WHITE, SQ_G5))
+            || (pos.pieces(WHITE, BISHOP) & relative_square(WHITE, SQ_F6))))
+            return WHITE;
+
+  if (     (pos.pieces(BLACK, ROOK) & relative_square(WHITE, SQ_A6))
+        && (pos.pieces(BLACK, PAWN) & relative_square(WHITE, SQ_A7))
+        && (pos.pieces(BLACK, PAWN) & relative_square(WHITE, SQ_C6))
+        && (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_A5))
+        && (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_C5))
+        && (   (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_B4))
+            || (pos.pieces(WHITE, BISHOP) & relative_square(WHITE, SQ_B4))
+            || (pos.pieces(WHITE, BISHOP) & relative_square(WHITE, SQ_C3))))
+            return BLACK;
+
+  if (     (pos.pieces(BLACK, ROOK) & relative_square(WHITE, SQ_H6))
+        && (pos.pieces(BLACK, PAWN) & relative_square(WHITE, SQ_H7))
+        && (pos.pieces(BLACK, PAWN) & relative_square(WHITE, SQ_F6))
+        && (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_H5))
+        && (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_F5))
+        && (   (pos.pieces(WHITE, PAWN) & relative_square(WHITE, SQ_G4))
+            || (pos.pieces(WHITE, BISHOP) & relative_square(WHITE, SQ_G4))
+            || (pos.pieces(WHITE, BISHOP) & relative_square(WHITE, SQ_F3))))
+            return BLACK;
+
+  return COLOR_NB;
+}
+
 /// evaluate() is the evaluator for the outer world. It returns a static
 /// evaluation of the position from the point of view of the side to move.
 
@@ -152,7 +197,7 @@ Value Eval::evaluate(const Position& pos) {
 
   Color stm = pos.side_to_move();
   Value optimism = pos.this_thread()->optimism[stm];
-
+  Color trappedSide = trapped_rook(pos);
   Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
 
   // Blend optimism with nnue complexity and (semi)classical complexity
@@ -163,6 +208,14 @@ Value Eval::evaluate(const Position& pos) {
 
   // Damp down the evaluation linearly when shuffling
   v = v * (200 - pos.rule50_count()) / 214;
+
+  if (trappedSide != COLOR_NB)
+  {
+     if (trappedSide == stm)
+        v -= 600;
+    else
+        v += 600;
+  }
 
   // Guarantee evaluation does not hit the tablebase range
   v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
