@@ -594,7 +594,7 @@ namespace {
 
     (ss+1)->excludedMove = bestMove = MOVE_NONE;
     (ss+2)->killers[0]   = (ss+2)->killers[1] = MOVE_NONE;
-    (ss+2)->cutoffCnt    = 0;
+    (ss+2)->cutoffCnt    = (ss+3)->failLows  = 0;
     ss->doubleExtensions = (ss-1)->doubleExtensions;
     Square prevSq        = is_ok((ss-1)->currentMove) ? to_sq((ss-1)->currentMove) : SQ_NONE;
     ss->statScore        = 0;
@@ -1171,6 +1171,9 @@ moves_loop: // When in check, search starts here
       if ((ss+1)->cutoffCnt > 3)
           r++;
 
+      if ((ss+2)->failLows > 20)
+          r++;
+
       else if (move == ttMove)
           r--;
 
@@ -1332,7 +1335,7 @@ moves_loop: // When in check, search starts here
                   assert(depth > 0);
                   alpha = value; // Update alpha! Always alpha < beta
               }
-          }
+          } else ss->failLows += 1 + ttMove;
       }
 
 
