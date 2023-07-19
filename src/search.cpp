@@ -262,11 +262,11 @@ void MainThread::search() {
 
 void Thread::search() {
 
-  // To allow access to (ss-7) up to (ss+2), the stack must be oversized.
+  // To allow access to (ss-7) up to (ss+3), the stack must be oversized.
   // The former is needed to allow update_continuation_histories(ss-1, ...),
   // which accesses its argument at ss-6, also near the root.
   // The latter is needed for statScore and killer initialization.
-  Stack stack[MAX_PLY+10], *ss = stack+7;
+  Stack stack[MAX_PLY+11], *ss = stack+7;
   Move  pv[MAX_PLY+1];
   Value alpha, beta, delta;
   Move  lastBestMove = MOVE_NONE;
@@ -276,14 +276,14 @@ void Thread::search() {
   Color us = rootPos.side_to_move();
   int iterIdx = 0;
 
-  std::memset(ss-7, 0, 10 * sizeof(Stack));
+  std::memset(ss-7, 0, 11 * sizeof(Stack));
   for (int i = 7; i > 0; --i)
   {
       (ss-i)->continuationHistory = &this->continuationHistory[0][0][NO_PIECE][0]; // Use as a sentinel
       (ss-i)->staticEval = VALUE_NONE;
   }
 
-  for (int i = 0; i <= MAX_PLY + 2; ++i)
+  for (int i = 0; i <= MAX_PLY + 3; ++i)
       (ss+i)->ply = i;
 
   ss->pv = pv;
@@ -594,7 +594,7 @@ namespace {
 
     (ss+1)->excludedMove = bestMove = MOVE_NONE;
     (ss+2)->killers[0]   = (ss+2)->killers[1] = MOVE_NONE;
-    (ss+2)->cutoffCnt    = 0;
+    (ss+2)->cutoffCnt    = (ss+3)->failLows  = 0;
     ss->doubleExtensions = (ss-1)->doubleExtensions;
     Square prevSq        = is_ok((ss-1)->currentMove) ? to_sq((ss-1)->currentMove) : SQ_NONE;
     ss->statScore        = 0;
@@ -1171,6 +1171,9 @@ moves_loop: // When in check, search starts here
       if ((ss+1)->cutoffCnt > 3)
           r++;
 
+      if ((ss+2)->failLows > 20)
+          r++;
+
       else if (move == ttMove)
           r--;
 
@@ -1332,7 +1335,7 @@ moves_loop: // When in check, search starts here
                   assert(depth > 0);
                   alpha = value; // Update alpha! Always alpha < beta
               }
-          }
+          } else ss->failLows += !ttMove ? 1 : 2;
       }
 
 
