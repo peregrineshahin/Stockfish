@@ -756,6 +756,7 @@ namespace {
     // Step 7. Razoring (~1 Elo).
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
+    
     if (eval < alpha - 456 - 252 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
@@ -798,11 +799,11 @@ namespace {
 
         pos.undo_null_move();
 
+        // Do not return unproven mate or TB scores
+        nullValue = std::min(nullValue, VALUE_TB_WIN_IN_MAX_PLY-1);
+
         if (nullValue >= beta)
         {
-            // Do not return unproven mate or TB scores
-            nullValue = std::min(nullValue, VALUE_TB_WIN_IN_MAX_PLY-1);
-
             if (thisThread->nmpMinPly || depth < 14)
                 return nullValue;
 
@@ -818,6 +819,9 @@ namespace {
 
             if (v >= beta)
                 return nullValue;
+        }
+        else if (nullValue < alpha - 200 - 100 * depth * depth) {
+            return alpha;
         }
     }
 
