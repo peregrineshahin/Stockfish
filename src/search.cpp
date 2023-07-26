@@ -782,7 +782,7 @@ namespace {
         && !excludedMove
         &&  pos.non_pawn_material(us)
         &&  ss->ply >= thisThread->nmpMinPly
-        &&  beta > VALUE_TB_LOSS_IN_MAX_PLY)
+        &&  abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
 
@@ -800,9 +800,6 @@ namespace {
 
         if (nullValue >= beta)
         {
-            // Do not return unproven mate or TB scores
-            nullValue = std::min(nullValue, VALUE_TB_WIN_IN_MAX_PLY-1);
-
             if (thisThread->nmpMinPly || depth < 14)
                 return nullValue;
 
