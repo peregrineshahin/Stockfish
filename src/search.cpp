@@ -804,8 +804,10 @@ namespace {
             nullValue = std::min(nullValue, VALUE_TB_WIN_IN_MAX_PLY-1);
 
             if (thisThread->nmpMinPly || depth < 14)
+            {
+                tte->save(posKey, nullValue, ss->ttPv, BOUND_LOWER, 0, MOVE_NONE, ss->staticEval);
                 return nullValue;
-
+            }
             assert(!thisThread->nmpMinPly); // Recursive verification is not allowed
 
             // Do verification search at high depths, with null move pruning disabled
@@ -817,7 +819,10 @@ namespace {
             thisThread->nmpMinPly = 0;
 
             if (v >= beta)
+            {
+                tte->save(posKey, nullValue, ss->ttPv, BOUND_LOWER, std::max(depth-R-2, 0), MOVE_NONE, ss->staticEval);
                 return nullValue;
+            }
         }
     }
 
