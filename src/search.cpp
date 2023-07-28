@@ -767,7 +767,8 @@ namespace {
     // The depth condition is important for mate finding.
     if (   !ss->ttPv
         &&  depth < 9
-        &&  eval - futility_margin(depth, cutNode && !ss->ttHit, improving) - (ss-1)->statScore / 306 >= beta
+        &&  (   eval - futility_margin(depth, cutNode && !ss->ttHit, improving) - (ss-1)->statScore / 306 >= beta
+             || thisThread->nmpMinPly)
         &&  eval >= beta
         &&  eval < 24923) // larger than VALUE_KNOWN_WIN, but smaller than TB wins
         return eval;
@@ -781,7 +782,7 @@ namespace {
         &&  ss->staticEval >= beta - 21 * depth + 258
         && !excludedMove
         &&  pos.non_pawn_material(us)
-        &&  ss->ply >= thisThread->nmpMinPly
+        &&  !thisThread->nmpMinPly
         &&  beta > VALUE_TB_LOSS_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
@@ -797,13 +798,11 @@ namespace {
         Value nullValue = -search<NonPV>(pos, ss+1, -beta, -beta+1, depth-R, !cutNode);
 
         pos.undo_null_move();
-
-        if (nullValue >= beta)
+        
+        // Do not return unproven mate or TB scores
+        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
         {
-            // Do not return unproven mate or TB scores
-            nullValue = std::min(nullValue, VALUE_TB_WIN_IN_MAX_PLY-1);
-
-            if (thisThread->nmpMinPly || depth < 14)
+            if (depth < 14)
                 return nullValue;
 
             assert(!thisThread->nmpMinPly); // Recursive verification is not allowed
