@@ -642,10 +642,7 @@ namespace {
             }
         }
 
-        // Partial workaround for the graph history interaction problem
-        // For high rule50 counts don't produce transposition table cutoffs.
-        if (pos.rule50_count() < 90)
-            return ttValue;
+        return ttValue;
     }
 
     // Step 5. Tablebases probe
@@ -1654,24 +1651,16 @@ moves_loop: // When in check, search starts here
 
   Value value_from_tt(Value v, int ply, int r50c) {
 
-    if (v == VALUE_NONE)
+    if (    v == VALUE_NONE
+        || (v >= VALUE_MATE_IN_MAX_PLY  && VALUE_MATE - v > 100 - r50c)
+        || (v <= VALUE_MATED_IN_MAX_PLY && VALUE_MATE + v > 100 - r50c))
         return VALUE_NONE;
 
     if (v >= VALUE_TB_WIN_IN_MAX_PLY)  // TB win or better
-    {
-        if (v >= VALUE_MATE_IN_MAX_PLY && VALUE_MATE - v > 99 - r50c)
-            return VALUE_MATE_IN_MAX_PLY - 1; // do not return a potentially false mate score
-
         return v - ply;
-    }
 
     if (v <= VALUE_TB_LOSS_IN_MAX_PLY) // TB loss or worse
-    {
-        if (v <= VALUE_MATED_IN_MAX_PLY && VALUE_MATE + v > 99 - r50c)
-            return VALUE_MATED_IN_MAX_PLY + 1; // do not return a potentially false mate score
-
         return v + ply;
-    }
 
     return v;
   }
