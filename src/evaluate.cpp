@@ -148,7 +148,7 @@ Value Eval::evaluate(const Position& pos) {
   Value nnue = NNUE::evaluate(pos, true);
 
   v = (  nnue     * (915 + npm + 9 * pos.count<PAWN>())
-       - 70       * (154 + npm +     pos.count<PAWN>())) / 1024;
+       + 110       * (154 + npm +     pos.count<PAWN>())) / 1024;
 
   // Damp down the evaluation linearly when shuffling
   v = v * (200 - pos.rule50_count()) / 214;
