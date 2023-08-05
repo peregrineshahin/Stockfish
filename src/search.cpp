@@ -529,7 +529,12 @@ namespace {
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+    {
+        if (!PvNode || alpha <= 820 || ss->ply % 2 == 0)
+            return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        else
+            depth = 1;
+    }
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
@@ -756,7 +761,7 @@ namespace {
     // Step 7. Razoring (~1 Elo).
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
-    if (eval < alpha - 456 - 252 * depth * depth)
+    if (eval < alpha - 456 - 252 * depth * depth && (alpha <= 820 || ss->ply % 2 == 0))
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
@@ -829,7 +834,12 @@ namespace {
         depth -= 2 + 2 * (ss->ttHit && tte->depth() >= depth);
 
     if (depth <= 0)
-        return qsearch<PV>(pos, ss, alpha, beta);
+    {
+        if (alpha <= 820 || ss->ply % 2 == 0)
+            return qsearch<PV>(pos, ss, alpha, beta);
+        else
+            depth = 1;
+    }
 
     if (    cutNode
         &&  depth >= 8
