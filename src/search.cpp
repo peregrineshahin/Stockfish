@@ -514,6 +514,7 @@ namespace {
 
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
+    Color us           = pos.side_to_move();
 
     // Check if we have an upcoming move that draws by repetition, or
     // if the opponent had an alternative move earlier to this position.
@@ -529,7 +530,12 @@ namespace {
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+    {
+        if (!PvNode || alpha <= 820 || pos.this_thread()->rootColor != us)
+            return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        else
+            depth = 2;
+    }
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
@@ -554,7 +560,6 @@ namespace {
     Thread* thisThread = pos.this_thread();
     ss->inCheck        = pos.checkers();
     priorCapture       = pos.captured_piece();
-    Color us           = pos.side_to_move();
     moveCount          = captureCount = quietCount = ss->moveCount = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
@@ -756,7 +761,7 @@ namespace {
     // Step 7. Razoring (~1 Elo).
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
-    if (eval < alpha - 456 - 252 * depth * depth)
+    if (eval < alpha - 456 - 252 * depth * depth && (alpha <= 820 || pos.this_thread()->rootColor != us))
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
@@ -829,7 +834,12 @@ namespace {
         depth -= 2 + 2 * (ss->ttHit && tte->depth() >= depth);
 
     if (depth <= 0)
-        return qsearch<PV>(pos, ss, alpha, beta);
+    {
+        if (alpha <= 820 || pos.this_thread()->rootColor != us)
+            return qsearch<PV>(pos, ss, alpha, beta);
+        else
+            depth = 2;
+    }
 
     if (    cutNode
         &&  depth >= 8
