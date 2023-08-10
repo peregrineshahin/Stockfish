@@ -703,7 +703,7 @@ namespace {
     CapturePieceToHistory& captureHistory = thisThread->captureHistory;
 
     // Step 6. Static evaluation of the position
-    if (ss->inCheck)
+    if (ss->inCheck || ((ss-2)->inCheck && (thisThread->nodes & 2)))
     {
         // Skip early pruning when in check
         ss->staticEval = eval = VALUE_NONE;
