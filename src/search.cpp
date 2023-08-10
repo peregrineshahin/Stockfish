@@ -1440,6 +1440,18 @@ moves_loop: // When in check, search starts here
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
+    // Check if we have an upcoming move that draws by repetition, or
+    // if the opponent had an alternative move earlier to this position.
+    if (   depth < 0
+        && pos.rule50_count() >= 3
+        && alpha < VALUE_DRAW
+        && pos.has_game_cycle(ss->ply))
+    {
+        alpha = value_draw(pos.this_thread());
+        if (alpha >= beta)
+            return alpha;
+    }
+
     // Decide whether or not to include checks: this fixes also the type of
     // TT entry depth that we are going to use. Note that in qsearch we use
     // only two types of depth in TT: DEPTH_QS_CHECKS or DEPTH_QS_NO_CHECKS.
