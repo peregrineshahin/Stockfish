@@ -139,9 +139,6 @@ namespace Eval {
 /// evaluation of the position from the point of view of the side to move.
 
 Value Eval::evaluate(const Position& pos) {
-
-  assert(!pos.checkers());
-
   Value v;
 
   int nnueComplexity;
