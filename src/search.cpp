@@ -714,7 +714,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         // Skip early pruning when in check
         ss->staticEval = eval = VALUE_NONE;
         improving             = false;
-        goto moves_loop;
+        goto label_in_check;
     }
     else if (excludedMove)
     {
@@ -823,6 +823,15 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         }
     }
 
+label_in_check:  // When in check, search starts here
+
+    // Step 12. A small Probcut idea, when we are in check (~4 Elo)
+    probCutBeta = beta + 416;
+    if (ss->inCheck && !PvNode && ttCapture && (tte->bound() & BOUND_LOWER)
+        && tte->depth() >= depth - 4 && ttValue >= probCutBeta
+        && abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
+        return probCutBeta;
+
     // Step 10. Internal iterative reductions (~9 Elo)
     // For PV nodes without a ttMove, we decrease depth by 2,
     // or by 4 if the current position is present in the TT and
@@ -845,7 +854,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     // If we have a good enough capture (or queen promotion) and a reduced search returns a value
     // much above beta, we can (almost) safely prune the previous move.
     if (
-      !PvNode && depth > 3
+      !PvNode && !ss->inCheck && depth > 3
       && abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
       // If value from transposition table is lower than probCutBeta, don't attempt probCut
       // there and in further interactions with transposition table cutoff depth is set to depth - 3
@@ -893,15 +902,6 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
 
         Eval::NNUE::hint_common_parent_position(pos);
     }
-
-moves_loop:  // When in check, search starts here
-
-    // Step 12. A small Probcut idea, when we are in check (~4 Elo)
-    probCutBeta = beta + 416;
-    if (ss->inCheck && !PvNode && ttCapture && (tte->bound() & BOUND_LOWER)
-        && tte->depth() >= depth - 4 && ttValue >= probCutBeta
-        && abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
-        return probCutBeta;
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
                                         (ss - 2)->continuationHistory,
