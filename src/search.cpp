@@ -1451,7 +1451,8 @@ moves_loop: // When in check, search starts here
     if (  !PvNode
         && tte->depth() >= ttDepth
         && ttValue != VALUE_NONE // Only in case of TT access race or if !ttHit
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER))
+        && pos.rule50_count() < 90)
         return ttValue;
 
     // Step 4. Static evaluation of the position
