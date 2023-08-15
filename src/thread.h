@@ -61,6 +61,7 @@ public:
   Value bestValue, optimism[COLOR_NB];
 
   Position rootPos;
+  int root50mc;
   StateInfo rootState;
   Search::RootMoves rootMoves;
   Depth rootDepth, completedDepth;
