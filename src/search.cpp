@@ -756,7 +756,7 @@ namespace {
     // Step 7. Razoring (~1 Elo).
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
-    if (eval < alpha - 456 - 252 * depth * depth)
+    if (!rootNode && eval < alpha - 456 - 252 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
@@ -1409,7 +1409,7 @@ moves_loop: // When in check, search starts here
 
     TTEntry* tte;
     Key posKey;
-    Move ttMove, move, bestMove;
+    Move ttMove, move, bestMove, excludedMove;
     Depth ttDepth;
     Value bestValue, value, ttValue, futilityValue, futilityBase;
     bool pvHit, givesCheck, capture;
@@ -1445,10 +1445,12 @@ moves_loop: // When in check, search starts here
     tte = TT.probe(posKey, ss->ttHit);
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove = ss->ttHit ? tte->move() : MOVE_NONE;
+    excludedMove = ss->excludedMove;
     pvHit = ss->ttHit && tte->is_pv();
 
     // At non-PV nodes we check for an early TT cutoff
-    if (  !PvNode
+    if (   !PvNode
+        && !excludedMove
         && tte->depth() >= ttDepth
         && ttValue != VALUE_NONE // Only in case of TT access race or if !ttHit
         && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
@@ -1457,6 +1459,11 @@ moves_loop: // When in check, search starts here
     // Step 4. Static evaluation of the position
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
+    else if (excludedMove)
+    {
+        Eval::NNUE::hint_common_parent_position(pos);
+        bestValue = futilityBase = ss->staticEval;
+    }
     else
     {
         if (ss->ttHit)
@@ -1514,6 +1521,9 @@ moves_loop: // When in check, search starts here
     {
         assert(is_ok(move));
 
+        if (move == excludedMove)
+            continue;
+
         // Check for legality
         if (!pos.legal(move))
             continue;
@@ -1524,7 +1534,7 @@ moves_loop: // When in check, search starts here
         moveCount++;
 
         // Step 6. Pruning.
-        if (bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
+        if (!excludedMove && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
         {
             // Futility pruning and moveCount pruning (~10 Elo)
             if (   !givesCheck
