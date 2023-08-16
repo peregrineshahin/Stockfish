@@ -1198,6 +1198,9 @@ moves_loop: // When in check, search starts here
                                          :  0;
 
               update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
+
+              if (value > alpha && prevSq != SQ_NONE)
+                  thisThread->counterMoves[pos.piece_on(prevSq)][prevSq] = move;
           }
       }
 
