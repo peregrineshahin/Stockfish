@@ -873,7 +873,7 @@ namespace {
                 value = -qsearch<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1);
 
                 // If the qsearch held, perform the regular search
-                if (value >= probCutBeta)
+                if (value >= probCutBeta && depth > 4)
                     value = -search<NonPV>(pos, ss+1, -probCutBeta, -probCutBeta+1, depth - 4, !cutNode);
 
                 pos.undo_move(move);
@@ -1393,8 +1393,7 @@ moves_loop: // When in check, search starts here
 
     // Check if we have an upcoming move that draws by repetition, or
     // if the opponent had an alternative move earlier to this position.
-    if (   depth < 0
-        && pos.rule50_count() >= 3
+    if (   pos.rule50_count() >= 3
         && alpha < VALUE_DRAW
         && pos.has_game_cycle(ss->ply))
     {
