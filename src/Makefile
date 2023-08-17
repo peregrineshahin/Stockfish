@@ -58,12 +58,11 @@ endif
 ### Source and object files
 SRCS = benchmark.cpp bitbase.cpp bitboard.cpp endgame.cpp evaluate.cpp main.cpp \
 	material.cpp misc.cpp movegen.cpp movepick.cpp pawns.cpp position.cpp psqt.cpp \
-	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp syzygy/tbprobe.cpp \
-	nnue/evaluate_nnue.cpp nnue/features/half_ka_v2_hm.cpp
+	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp syzygy/tbprobe.cpp
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
 
-VPATH = syzygy:nnue:nnue/features
+VPATH = syzygy
 
 ### ==========================================================================
 ### Section 2. High-level Configuration
@@ -771,7 +770,6 @@ help:
 	@echo "help                    > Display architecture details"
 	@echo "profile-build           > standard build with profile-guided optimization"
 	@echo "build                   > skip profile-guided optimization"
-	@echo "net                     > Download the default nnue net"
 	@echo "strip                   > Strip executable"
 	@echo "install                 > Install executable"
 	@echo "clean                   > Clean up"
@@ -870,50 +868,14 @@ install:
 clean: objclean profileclean
 	@rm -f .depend *~ core
 
-# evaluation network (nnue)
-net:
-	$(eval nnuenet := $(shell grep EvalFileDefaultName evaluate.h | grep define | sed 's/.*\(nn-[a-z0-9]\{12\}.nnue\).*/\1/'))
-	@echo "Default net: $(nnuenet)"
-	$(eval nnuedownloadurl1 := https://tests.stockfishchess.org/api/nn/$(nnuenet))
-	$(eval nnuedownloadurl2 := https://github.com/official-stockfish/networks/raw/master/$(nnuenet))
-	$(eval curl_or_wget := $(shell if hash curl 2>/dev/null; then echo "curl -skL"; elif hash wget 2>/dev/null; then echo "wget -qO-"; fi))
-	@if [ "x$(curl_or_wget)" = "x" ]; then \
-	    echo "Neither curl nor wget is installed. Install one of these tools unless the net has been downloaded manually"; \
-        fi
-	$(eval shasum_command := $(shell if hash shasum 2>/dev/null; then echo "shasum -a 256 "; elif hash sha256sum 2>/dev/null; then echo "sha256sum "; fi))
-	@if [ "x$(shasum_command)" = "x" ]; then \
-            echo "shasum / sha256sum not found, skipping net validation"; \
-        fi
-	@for nnuedownloadurl in "$(nnuedownloadurl1)" "$(nnuedownloadurl2)"; do \
-	   if test -f "$(nnuenet)"; then \
-	      echo "$(nnuenet) available."; \
-	   else \
-	      if [ "x$(curl_or_wget)" != "x" ]; then \
-                 echo "Downloading $${nnuedownloadurl}"; $(curl_or_wget) $${nnuedownloadurl} > $(nnuenet);\
-              else \
-                 echo "No net found and download not possible"; exit 1;\
-	      fi; \
-	   fi; \
-	   if [ "x$(shasum_command)" != "x" ]; then \
-	      if [ "$(nnuenet)" != "nn-"`$(shasum_command) $(nnuenet) | cut -c1-12`".nnue" ]; then \
-	         echo "Removing failed download"; rm -f $(nnuenet); \
-	      else \
-	         echo "Network validated"; break; \
-	      fi; \
-	   fi; \
-	done
-	@if ! test -f "$(nnuenet)"; then \
-	    echo "Failed to download $(nnuenet)."; \
-	fi
-
 # clean binaries and objects
 objclean:
-	@rm -f stockfish stockfish.exe *.o ./syzygy/*.o ./nnue/*.o ./nnue/features/*.o
+	@rm -f stockfish stockfish.exe *.o ./syzygy/*.o
 
 # clean auxiliary profiling files
 profileclean:
 	@rm -rf profdir
-	@rm -f bench.txt *.gcda *.gcno ./syzygy/*.gcda ./nnue/*.gcda ./nnue/features/*.gcda *.s
+	@rm -f bench.txt *.gcda *.gcno ./syzygy/*.gcda *.s
 	@rm -f stockfish.profdata *.profraw
 	@rm -f stockfish.*args*
 	@rm -f stockfish.*lt*

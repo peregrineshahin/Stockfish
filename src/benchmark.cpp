@@ -102,7 +102,7 @@ namespace Stockfish {
 /// should be used, the limit value spent for each position, a file name
 /// where to look for positions in FEN format, the type of the limit:
 /// depth, perft, nodes and movetime (in millisecs), and evaluation type
-/// mixed (default), classical, NNUE.
+/// mixed (default), classical.
 ///
 /// bench -> search default positions up to depth 13
 /// bench 64 1 15 -> search default positions up to depth 15 (TT = 64MB)
@@ -160,16 +160,10 @@ vector<string> setup_bench(const Position& current, istream& is) {
           list.emplace_back(fen);
       else
       {
-          if (evalType == "classical" || (evalType == "mixed" && posCounter % 2 == 0))
-              list.emplace_back("setoption name Use NNUE value false");
-          else if (evalType == "NNUE" || (evalType == "mixed" && posCounter % 2 != 0))
-              list.emplace_back("setoption name Use NNUE value true");
           list.emplace_back("position fen " + fen);
           list.emplace_back(go);
           ++posCounter;
       }
-
-  list.emplace_back("setoption name Use NNUE value true");
 
   return list;
 }
