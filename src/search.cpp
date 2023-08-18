@@ -758,7 +758,10 @@ namespace {
     // return a fail low.
     if (eval < alpha - 456 - 252 * depth * depth)
     {
+        ss->razoring=true;
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+        ss->razoring=false;
+
         if (value < alpha)
             return value;
     }
@@ -1459,7 +1462,12 @@ moves_loop: // When in check, search starts here
         bestValue = futilityBase = -VALUE_INFINITE;
     else
     {
-        if (ss->ttHit)
+        if (ss->razoring)
+        {
+            Eval::NNUE::hint_common_parent_position(pos);
+            bestValue = ss->staticEval;
+        }
+        else if (ss->ttHit)
         {
             // Never assume anything about values stored in TT
             if ((ss->staticEval = bestValue = tte->eval()) == VALUE_NONE)
