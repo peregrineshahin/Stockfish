@@ -1744,7 +1744,11 @@ moves_loop: // When in check, search starts here
         if (ss->inCheck && i > 2)
             break;
         if (is_ok((ss-i)->currentMove))
-            (*(ss-i)->continuationHistory)[pc][to] << bonus;
+        {
+            int decay_factor = i * 2;
+            int decayed_bonus = bonus * (100 - decay_factor) / 100;
+            (*(ss-i)->continuationHistory)[pc][to] << decayed_bonus;
+        }
     }
   }
 
