@@ -1072,7 +1072,10 @@ moves_loop: // When in check, search starts here
               // that multiple moves fail high, and we can prune the whole subtree by returning
               // a softbound.
               else if (singularBeta >= beta)
+              {
+                  ss->cutoffCnt++;
                   return singularBeta;
+              }
 
               // If the eval of ttMove is greater than beta, we reduce it (negative extension) (~7 Elo)
               else if (ttValue >= beta)
