@@ -1146,7 +1146,7 @@ moves_loop: // When in check, search starts here
       
       // Increase reduction on repetition (~1 Elo)
       if (   move == (ss-4)->currentMove
-          && repeatedParent || pos.has_repeated())
+          && (repeatedParent || pos.has_repeated()))
           r += 2;
 
       // Increase reduction if next ply has a lot of fail high (~5 Elo)
