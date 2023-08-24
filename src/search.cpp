@@ -1113,7 +1113,7 @@ moves_loop: // When in check, search starts here
                                                                 [capture]
                                                                 [movedPiece]
                                                                 [to_sq(move)];
-
+      bool repeatedParent = pos.has_repeated();
       // Step 16. Make the move
       pos.do_move(move, st, givesCheck);
 
@@ -1148,6 +1148,14 @@ moves_loop: // When in check, search starts here
       if (   move == (ss-4)->currentMove
           && pos.has_repeated())
           r += 2;
+
+      if (   PvNode
+          && repeatedParent
+          && !capture
+          && is_ok((ss-4)->currentMove)
+          && from_sq(move) != from_sq((ss-4)->currentMove)
+          && !pos.has_repeated())
+          r -= 2;
 
       // Increase reduction if next ply has a lot of fail high (~5 Elo)
       if ((ss+1)->cutoffCnt > 3)
