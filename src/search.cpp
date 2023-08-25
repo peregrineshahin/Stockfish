@@ -1242,7 +1242,7 @@ moves_loop: // When in check, search starts here
       {
           RootMove& rm = *std::find(thisThread->rootMoves.begin(),
                                     thisThread->rootMoves.end(), move);
-
+ 
           rm.averageScore = rm.averageScore != -VALUE_INFINITE ? (2 * value + rm.averageScore) / 3 : value;
 
           // PV move or new best move?
@@ -1475,9 +1475,14 @@ moves_loop: // When in check, search starts here
                 bestValue = ttValue;
         }
         else
+        {
             // In case of null move search use previous static eval with a different sign
-            ss->staticEval = bestValue = (ss-1)->currentMove != MOVE_NULL ? evaluate(pos)
+            ss->staticEval = bestValue =      (ss-1)->currentMove != MOVE_NULL
+                                         ||  -(ss-1)->staticEval  >= beta ? evaluate(pos)
                                                                           : -(ss-1)->staticEval;
+        }
+
+
 
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
