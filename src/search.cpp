@@ -960,6 +960,8 @@ moves_loop: // When in check, search starts here
       movedPiece = pos.moved_piece(move);
       givesCheck = pos.gives_check(move);
 
+      if (moveCountPruning)
+          dbg_hit_on(capture);
       // Calculate new depth for this move
       newDepth = depth - 1;
 
