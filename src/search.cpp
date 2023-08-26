@@ -1136,6 +1136,9 @@ moves_loop: // When in check, search starts here
       if (ttCapture)
           r++;
 
+      if (ttMove && moveCountPruning)
+          r++;
+
       // Decrease reduction for PvNodes (~2 Elo)
       if (PvNode)
           r--;
