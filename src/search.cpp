@@ -548,14 +548,14 @@ namespace {
     bool givesCheck, improving, priorCapture, singularQuietLMR;
     bool capture, moveCountPruning, ttCapture;
     Piece movedPiece;
-    int moveCount, captureCount, quietCount;
+    int moveCount, captureCount, quietCount, noScoreImprovements;
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
     ss->inCheck        = pos.checkers();
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
-    moveCount          = captureCount = quietCount = ss->moveCount = 0;
+    moveCount          = captureCount = quietCount = ss->moveCount = noScoreImprovements = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -1303,6 +1303,7 @@ moves_loop: // When in check, search starts here
               }
               else
               {
+                  noScoreImprovements = 0;
                   // Reduce other moves if we have found at least one score improvement (~2 Elo)
                   if (   depth > 2
                       && depth < 12
@@ -1313,6 +1314,15 @@ moves_loop: // When in check, search starts here
                   assert(depth > 0);
                   alpha = value; // Update alpha! Always alpha < beta
               }
+          }
+          else
+          {
+            noScoreImprovements++;
+            if (noScoreImprovements > 5)
+            {
+                depth++;
+                noScoreImprovements = 0;
+            }
           }
       }
 
