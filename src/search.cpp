@@ -1143,7 +1143,10 @@ moves_loop: // When in check, search starts here
       // Decrease reduction if ttMove has been singularly extended (~1 Elo)
       if (singularQuietLMR)
           r--;
-      
+
+      if (improving && moveCountPruning)
+          r += 2;
+
       // Increase reduction on repetition (~1 Elo)
       if (   move == (ss-4)->currentMove
           && pos.has_repeated())
