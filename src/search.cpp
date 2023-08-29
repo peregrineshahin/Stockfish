@@ -779,7 +779,7 @@ namespace {
         &&  eval >= beta
         &&  eval >= ss->staticEval
         &&  ss->staticEval >= beta - 21 * depth + 258
-        && !excludedMove
+        &&  thisThread->excludedColor != us
         &&  pos.non_pawn_material(us)
         &&  ss->ply >= thisThread->nmpMinPly
         &&  beta > VALUE_TB_LOSS_IN_MAX_PLY)
@@ -1048,7 +1048,10 @@ moves_loop: // When in check, search starts here
               Depth singularDepth = (depth - 1) / 2;
 
               ss->excludedMove = move;
+              Color oldExcludedColor = thisThread->excludedColor;
+              thisThread->excludedColor = us;
               value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
+              thisThread->excludedColor = oldExcludedColor;
               ss->excludedMove = MOVE_NONE;
 
               if (value < singularBeta)

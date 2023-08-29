@@ -58,6 +58,7 @@ public:
   size_t pvIdx, pvLast;
   std::atomic<uint64_t> nodes, tbHits, bestMoveChanges;
   int selDepth, nmpMinPly;
+  Color excludedColor;
   Value bestValue, optimism[COLOR_NB];
 
   Position rootPos;
