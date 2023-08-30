@@ -57,11 +57,11 @@ namespace {
 /// ordering is at the current node.
 
 /// MovePicker constructor for the main search
-MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
-                                                             const CapturePieceToHistory* cph,
-                                                             const PieceToHistory** ch,
-                                                             Move cm,
-                                                             const Move* killers)
+MovePicker::MovePicker(Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
+                                                       const CapturePieceToHistory* cph,
+                                                       const PieceToHistory** ch,
+                                                       Move cm,
+                                                       const Move* killers)
            : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch),
              ttMove(ttm), refutations{{killers[0], 0}, {killers[1], 0}, {cm, 0}}, depth(d)
 {
@@ -72,10 +72,10 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
 }
 
 /// MovePicker constructor for quiescence search
-MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
-                                                             const CapturePieceToHistory* cph,
-                                                             const PieceToHistory** ch,
-                                                             Square rs)
+MovePicker::MovePicker(Position& p, Move ttm, Depth d, const ButterflyHistory* mh,
+                                                       const CapturePieceToHistory* cph,
+                                                       const PieceToHistory** ch,
+                                                       Square rs)
            : pos(p), mainHistory(mh), captureHistory(cph), continuationHistory(ch), ttMove(ttm), recaptureSquare(rs), depth(d)
 {
   assert(d <= 0);
@@ -87,7 +87,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
 
 /// MovePicker constructor for ProbCut: we generate captures with SEE greater
 /// than or equal to the given threshold.
-MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePieceToHistory* cph)
+MovePicker::MovePicker(Position& p, Move ttm, Value th, const CapturePieceToHistory* cph)
            : pos(p), captureHistory(cph), ttMove(ttm), threshold(th)
 {
   assert(!pos.checkers());
@@ -139,8 +139,9 @@ void MovePicker::score() {
           m.value +=     (*continuationHistory[3])[pc][to];
           m.value +=     (*continuationHistory[5])[pc][to];
 
+          bool gives_check = bool(pos.check_squares(pt) & to);
           // bonus for checks
-          m.value += bool(pos.check_squares(pt) & to) * 16384;
+          m.value += gives_check * 16384;
 
           // bonus for escaping from capture
           m.value += threatenedPieces & from ?
@@ -160,6 +161,12 @@ void MovePicker::score() {
                        : pt != PAWN ?    bool(to & threatenedByPawn)  * 15000
                        :                                                0 )
                        :                                                0 ;
+          StateInfo st;
+          pos.do_move(m, st, gives_check);
+          if (pos.has_repeated())
+              m.value -= 50000;
+          pos.undo_move(m);
+
       }
       
       else // Type == EVASIONS
