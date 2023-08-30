@@ -1730,9 +1730,10 @@ moves_loop: // When in check, search starts here
     // Decrease stats for all non-best capture moves
     for (int i = 0; i < captureCount; ++i)
     {
+        int decayed_bonus = quietMoveBonus * (100 - i) / 100;
         moved_piece = pos.moved_piece(capturesSearched[i]);
         captured = type_of(pos.piece_on(to_sq(capturesSearched[i])));
-        captureHistory[moved_piece][to_sq(capturesSearched[i])][captured] << -quietMoveBonus;
+        captureHistory[moved_piece][to_sq(capturesSearched[i])][captured] << -decayed_bonus;
     }
   }
 
