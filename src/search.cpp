@@ -1418,15 +1418,20 @@ moves_loop: // When in check, search starts here
     Value bestValue, value, ttValue, futilityValue, futilityBase;
     bool pvHit, givesCheck, capture;
     int moveCount;
+    Thread* thisThread = pos.this_thread();
 
     // Step 1. Initialize node
+
+    // Check for the available remaining time
+    if (thisThread == Threads.main())
+        static_cast<MainThread*>(thisThread)->check_time();
+
     if (PvNode)
     {
         (ss+1)->pv = pv;
         ss->pv[0] = MOVE_NONE;
     }
 
-    Thread* thisThread = pos.this_thread();
     bestMove = MOVE_NONE;
     ss->inCheck = pos.checkers();
     moveCount = 0;
