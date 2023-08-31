@@ -1061,7 +1061,7 @@ moves_loop: // When in check, search starts here
                       && value < singularBeta - 21
                       && ss->doubleExtensions <= 11)
                   {
-                      extension = 2;
+                      extension = 2 - (value >= singularBeta - 26);
                       depth += depth < 13;
                   }
               }
