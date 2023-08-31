@@ -1025,7 +1025,7 @@ moves_loop: // When in check, search starts here
 
       // Step 15. Extensions (~100 Elo)
       // We take care to not overdo to avoid search getting stuck.
-      if (ss->ply < thisThread->rootDepth * 2)
+      if (!likelyFailLow && ss->ply < thisThread->rootDepth * 2)
       {
           // Singular extension search (~94 Elo). If all moves but one fail low on a
           // search of (alpha-s, beta-s), and just one fails high on (alpha, beta),
