@@ -1706,11 +1706,12 @@ moves_loop: // When in check, search starts here
         // Increase stats for the best move in case it was a quiet move
         update_quiet_stats(pos, ss, bestMove, bestMoveBonus);
 
+        int penalty = pos.captured_piece() ? -bestMoveBonus : -bestMoveBonus * 2;
         // Decrease stats for all non-best quiet moves
         for (int i = 0; i < quietCount; ++i)
         {
-            thisThread->mainHistory[us][from_to(quietsSearched[i])] << -bestMoveBonus;
-            update_continuation_histories(ss, pos.moved_piece(quietsSearched[i]), to_sq(quietsSearched[i]), -bestMoveBonus);
+            thisThread->mainHistory[us][from_to(quietsSearched[i])] << penalty;
+            update_continuation_histories(ss, pos.moved_piece(quietsSearched[i]), to_sq(quietsSearched[i]), penalty);
         }
     }
     else
