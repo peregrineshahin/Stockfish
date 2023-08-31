@@ -515,6 +515,8 @@ namespace {
     constexpr bool PvNode = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
+    bool repeated = false;
+
     // Check if we have an upcoming move that draws by repetition, or
     // if the opponent had an alternative move earlier to this position.
     if (   !rootNode
@@ -522,6 +524,7 @@ namespace {
         && alpha < VALUE_DRAW
         && pos.has_game_cycle(ss->ply))
     {
+        repeated = true;
         alpha = value_draw(pos.this_thread());
         if (alpha >= beta)
             return alpha;
@@ -707,6 +710,10 @@ namespace {
     {
         // Skip early pruning when in check
         ss->staticEval = eval = VALUE_NONE;
+
+        if (repeated && alpha > eval)
+            ss->staticEval = eval = alpha;
+
         improving = false;
         goto moves_loop;
     }
@@ -736,6 +743,9 @@ namespace {
         // Save static evaluation into the transposition table
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
     }
+
+    if (repeated && alpha > eval)
+        ss->staticEval = eval = alpha;
 
     // Use static evaluation difference to improve quiet move ordering (~4 Elo)
     if (is_ok((ss-1)->currentMove) && !(ss-1)->inCheck && !priorCapture)
