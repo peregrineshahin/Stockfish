@@ -555,7 +555,7 @@ namespace {
     Depth extension, newDepth;
     Value bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool givesCheck, improving, priorCapture, singularQuietLMR;
-    bool capture, moveCountPruning, ttCapture;
+    bool capture, moveCountPruning, ttCapture, unrazorable;
     Piece movedPiece;
     int moveCount, captureCount, quietCount;
 
@@ -607,6 +607,7 @@ namespace {
     ss->doubleExtensions = (ss-1)->doubleExtensions;
     Square prevSq        = is_ok((ss-1)->currentMove) ? to_sq((ss-1)->currentMove) : SQ_NONE;
     ss->statScore        = 0;
+    unrazorable = false;
 
     // Step 4. Transposition table lookup.
     excludedMove = ss->excludedMove;
@@ -770,6 +771,7 @@ namespace {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
             return value;
+        unrazorable = true;
     }
 
     // Step 8. Futility pruning: child node (~40 Elo).
@@ -1207,8 +1209,8 @@ moves_loop: // When in check, search starts here
               if (newDepth > d)
                   value = -search<NonPV>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode);
 
-              int bonus = value <= alpha ? -stat_bonus(newDepth)
-                        : value >= beta  ?  stat_bonus(newDepth)
+              int bonus = value <= alpha ?  (1 + unrazorable) * -stat_bonus(newDepth)
+                        : value >= beta  ?  (1 + unrazorable) *  stat_bonus(newDepth)
                                          :  0;
 
               update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
