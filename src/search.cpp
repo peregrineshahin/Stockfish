@@ -602,8 +602,8 @@ namespace {
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
     (ss+1)->excludedMove = bestMove = MOVE_NONE;
-    (ss+2)->killers[0]   = (ss+2)->killers[1] = MOVE_NONE;
-    (ss+2)->cutoffCnt    = 0;
+    (ss+2)->killers[0]   = (ss+2)->killers[1]   = MOVE_NONE;
+    (ss+2)->cutoffCnt    = (ss+2)->nullCutoffs  = 0;
     ss->doubleExtensions = (ss-1)->doubleExtensions;
     Square prevSq        = is_ok((ss-1)->currentMove) ? to_sq((ss-1)->currentMove) : SQ_NONE;
     ss->statScore        = 0;
@@ -809,6 +809,8 @@ namespace {
 
         if (nullValue >= beta)
         {
+            ss->nullCutoffs += 1 + !ttMove;
+
             // Do not return unproven mate or TB scores
             nullValue = std::min(nullValue, VALUE_TB_WIN_IN_MAX_PLY-1);
 
@@ -1163,6 +1165,9 @@ moves_loop: // When in check, search starts here
           r++;
 
       else if (move == ttMove)
+          r--;
+
+      if ((ss+1)->nullCutoffs > 10)
           r--;
 
       ss->statScore =  2 * thisThread->mainHistory[us][from_to(move)]
