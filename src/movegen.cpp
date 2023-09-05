@@ -93,16 +93,16 @@ namespace {
             b2 &= pawn_attacks_bb(Them, ksq) | shift<Up+Up>(dcCandidatePawns);
         }
 
-        while (b1)
-        {
-            Square to = pop_lsb(b1);
-            *moveList++ = make_move(to - Up, to);
-        }
 
         while (b2)
         {
             Square to = pop_lsb(b2);
             *moveList++ = make_move(to - Up - Up, to);
+        }
+        while (b1)
+        {
+            Square to = pop_lsb(b1);
+            *moveList++ = make_move(to - Up, to);
         }
     }
 
