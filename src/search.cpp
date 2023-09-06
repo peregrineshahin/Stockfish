@@ -772,6 +772,8 @@ namespace {
             return value;
     }
 
+    depth++;
+
     // Step 8. Futility pruning: child node (~40 Elo).
     // The depth condition is important for mate finding.
     if (   !ss->ttPv
@@ -829,6 +831,8 @@ namespace {
                 return nullValue;
         }
     }
+
+    depth--;
 
     // Step 10. If the position doesn't have a ttMove, decrease depth by 2
     // (or by 4 if the TT entry for the current position was hit and the stored depth is greater than or equal to the current depth).
