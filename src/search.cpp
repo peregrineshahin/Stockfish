@@ -555,7 +555,7 @@ namespace {
     Depth extension, newDepth;
     Value bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool givesCheck, improving, priorCapture, singularQuietLMR;
-    bool capture, moveCountPruning, ttCapture;
+    bool capture, moveCountPruning, ttCapture, depthDecremented;
     Piece movedPiece;
     int moveCount, captureCount, quietCount;
 
@@ -567,6 +567,7 @@ namespace {
     moveCount          = captureCount = quietCount = ss->moveCount = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
+    depthDecremented   = false;
 
     // Check for the available remaining time
     if (thisThread == Threads.main())
@@ -776,7 +777,9 @@ namespace {
     // The depth condition is important for mate finding.
     if (   !ss->ttPv
         &&  depth < 9
-        &&  eval - futility_margin(depth, cutNode && !ss->ttHit, improving) - (ss-1)->statScore / 306 >= beta
+        &&  eval + 100 * !excludedMove * !depthDecremented
+                 - futility_margin(depth, cutNode && !ss->ttHit, improving)
+                 - (ss-1)->statScore / 306 >= beta
         &&  eval >= beta
         &&  eval < 24923) // larger than VALUE_KNOWN_WIN, but smaller than TB wins
         return eval;
@@ -843,7 +846,10 @@ namespace {
     if (    cutNode
         &&  depth >= 8
         && !ttMove)
+    {
+        depthDecremented = true;
         depth -= 2;
+    }
 
     probCutBeta = beta + 168 - 61 * improving;
 
