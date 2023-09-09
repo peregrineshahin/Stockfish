@@ -531,9 +531,9 @@ namespace {
         && alpha < VALUE_DRAW
         && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(pos.this_thread());
+        alpha = VALUE_DRAW;
         if (alpha >= beta)
-            return alpha;
+            return value_draw(pos.this_thread());
     }
 
     // Dive into quiescence search when the depth reaches zero
@@ -542,6 +542,7 @@ namespace {
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
+    assert(!PvNode || ss->pv[0] == MOVE_NONE);
     assert(0 < depth && depth < MAX_PLY);
     assert(!(PvNode && cutNode));
 
@@ -1402,6 +1403,7 @@ moves_loop: // When in check, search starts here
 
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
+    assert(!PvNode || ss->pv[0] == MOVE_NONE);
     assert(depth <= 0);
 
     // Check if we have an upcoming move that draws by repetition, or
@@ -1410,9 +1412,9 @@ moves_loop: // When in check, search starts here
         && alpha < VALUE_DRAW
         && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(pos.this_thread());
+        alpha = VALUE_DRAW;
         if (alpha >= beta)
-            return alpha;
+            return value_draw(pos.this_thread());
     }
 
     Move pv[MAX_PLY+1];
@@ -1428,12 +1430,6 @@ moves_loop: // When in check, search starts here
     int moveCount;
 
     // Step 1. Initialize node
-    if (PvNode)
-    {
-        (ss+1)->pv = pv;
-        ss->pv[0] = MOVE_NONE;
-    }
-
     Thread* thisThread = pos.this_thread();
     bestMove = MOVE_NONE;
     ss->inCheck = pos.checkers();
@@ -1442,7 +1438,7 @@ moves_loop: // When in check, search starts here
     // Step 2. Check for an immediate draw or maximum ply reached
     if (   pos.is_draw(ss->ply)
         || ss->ply >= MAX_PLY)
-        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
+        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : value_draw(pos.this_thread());
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
@@ -1591,6 +1587,11 @@ moves_loop: // When in check, search starts here
 
         quietCheckEvasions += !capture && ss->inCheck;
 
+        if (PvNode)
+        {
+            (ss+1)->pv = pv;
+            (ss+1)->pv[0] = MOVE_NONE;
+        }
         // Step 7. Make and search the move
         pos.do_move(move, st, givesCheck);
         value = -qsearch<nodeType>(pos, ss+1, -beta, -alpha, depth - 1);
