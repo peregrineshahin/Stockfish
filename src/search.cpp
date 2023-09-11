@@ -558,6 +558,7 @@ namespace {
     bool capture, moveCountPruning, ttCapture;
     Piece movedPiece;
     int moveCount, captureCount, quietCount;
+    Value pureEval;
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
@@ -567,6 +568,7 @@ namespace {
     moveCount          = captureCount = quietCount = ss->moveCount = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
+    pureEval           = VALUE_NONE;
 
     // Check for the available remaining time
     if (thisThread == Threads.main())
@@ -582,7 +584,7 @@ namespace {
         if (   Threads.stop.load(std::memory_order_relaxed)
             || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos, pureEval)
                                                         : value_draw(pos.this_thread());
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
@@ -728,11 +730,8 @@ namespace {
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
-        ss->staticEval = eval = tte->eval();
-        if (eval == VALUE_NONE)
-            ss->staticEval = eval = evaluate(pos);
-        else if (PvNode)
-            Eval::NNUE::hint_common_parent_position(pos);
+        pureEval = tte->eval();
+        ss->staticEval = eval = evaluate(pos, pureEval);
 
         // ttValue can be used as a better position evaluation (~7 Elo)
         if (    ttValue != VALUE_NONE
@@ -741,9 +740,9 @@ namespace {
     }
     else
     {
-        ss->staticEval = eval = evaluate(pos);
+        ss->staticEval = eval = evaluate(pos, pureEval);
         // Save static evaluation into the transposition table
-        tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
+        tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, pureEval);
     }
 
     // Use static evaluation difference to improve quiet move ordering (~4 Elo)
@@ -890,7 +889,7 @@ namespace {
                 if (value >= probCutBeta)
                 {
                     // Save ProbCut data into transposition table
-                    tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3, move, ss->staticEval);
+                    tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3, move, pureEval);
                     return value;
                 }
             }
@@ -1383,7 +1382,7 @@ moves_loop: // When in check, search starts here
         tte->save(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv,
                   bestValue >= beta ? BOUND_LOWER :
                   PvNode && bestMove ? BOUND_EXACT : BOUND_UPPER,
-                  depth, bestMove, ss->staticEval);
+                  depth, bestMove, pureEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1426,6 +1425,7 @@ moves_loop: // When in check, search starts here
     Value bestValue, value, ttValue, futilityValue, futilityBase;
     bool pvHit, givesCheck, capture;
     int moveCount;
+    Value pureEval;
 
     // Step 1. Initialize node
     if (PvNode)
@@ -1438,11 +1438,12 @@ moves_loop: // When in check, search starts here
     bestMove = MOVE_NONE;
     ss->inCheck = pos.checkers();
     moveCount = 0;
+    pureEval = VALUE_NONE;
 
     // Step 2. Check for an immediate draw or maximum ply reached
     if (   pos.is_draw(ss->ply)
         || ss->ply >= MAX_PLY)
-        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
+        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos, pureEval) : VALUE_DRAW;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
@@ -1475,7 +1476,7 @@ moves_loop: // When in check, search starts here
         {
             // Never assume anything about values stored in TT
             if ((ss->staticEval = bestValue = tte->eval()) == VALUE_NONE)
-                ss->staticEval = bestValue = evaluate(pos);
+                ss->staticEval = bestValue = evaluate(pos, pureEval);
 
             // ttValue can be used as a better position evaluation (~13 Elo)
             if (    ttValue != VALUE_NONE
@@ -1484,7 +1485,7 @@ moves_loop: // When in check, search starts here
         }
         else
             // In case of null move search use previous static eval with a different sign
-            ss->staticEval = bestValue = (ss-1)->currentMove != MOVE_NULL ? evaluate(pos)
+            ss->staticEval = bestValue = (ss-1)->currentMove != MOVE_NULL ? evaluate(pos, pureEval)
                                                                           : -(ss-1)->staticEval;
 
         // Stand pat. Return immediately if static value is at least beta
@@ -1493,7 +1494,7 @@ moves_loop: // When in check, search starts here
             // Save gathered info in transposition table
             if (!ss->ttHit)
                 tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
-                          DEPTH_NONE, MOVE_NONE, ss->staticEval);
+                          DEPTH_NONE, MOVE_NONE, pureEval);
 
             return bestValue;
         }
@@ -1631,7 +1632,7 @@ moves_loop: // When in check, search starts here
     // Save gathered info in transposition table
     tte->save(posKey, value_to_tt(bestValue, ss->ply), pvHit,
               bestValue >= beta ? BOUND_LOWER : BOUND_UPPER,
-              ttDepth, bestMove, ss->staticEval);
+              ttDepth, bestMove, pureEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 

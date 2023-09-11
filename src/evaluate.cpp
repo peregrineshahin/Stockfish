@@ -150,7 +150,7 @@ Value Eval::simple_eval(const Position& pos, Color c) {
 /// evaluate() is the evaluator for the outer world. It returns a static evaluation
 /// of the position from the point of view of the side to move.
 
-Value Eval::evaluate(const Position& pos) {
+Value Eval::evaluate(const Position& pos, Value& pureEval) {
 
   assert(!pos.checkers());
 
@@ -165,20 +165,27 @@ Value Eval::evaluate(const Position& pos) {
                                  + abs(pos.this_thread()->rootSimpleEval);
 
   if (lazy)
-      v = Value(simpleEval);
+      v = pureEval = Value(simpleEval);
   else
   {
       int nnueComplexity;
-      Value nnue = NNUE::evaluate(pos, true, &nnueComplexity);
-
       Value optimism = pos.this_thread()->optimism[stm];
 
-      // Blend optimism and eval with nnue complexity and material imbalance
-      optimism += optimism * (nnueComplexity + abs(simpleEval - nnue)) / 512;
-      nnue     -= nnue     * (nnueComplexity + abs(simpleEval - nnue)) / 32768;
+      if (pureEval == VALUE_NONE)
+      {
+          pureEval  = NNUE::evaluate(pos, true, &nnueComplexity);
+          optimism += optimism * (nnueComplexity + abs(simpleEval - pureEval)) / 512;
+          pureEval -= pureEval * (nnueComplexity + abs(simpleEval - pureEval)) / 32768;
+      }
+      else
+      {
+          Eval::NNUE::hint_common_parent_position(pos);
+          optimism += optimism * (abs(simpleEval - pureEval) / 2) / 512;
+          pureEval -= pureEval * (abs(simpleEval - pureEval) / 2) / 32768;
+      }
 
       int npm = pos.non_pawn_material() / 64;
-      v = (  nnue     * (915 + npm + 9 * pos.count<PAWN>())
+      v = (  pureEval * (915 + npm + 9 * pos.count<PAWN>())
            + optimism * (154 + npm +     pos.count<PAWN>())) / 1024;
   }
 
@@ -217,8 +224,8 @@ std::string Eval::trace(Position& pos) {
   v = NNUE::evaluate(pos, false);
   v = pos.side_to_move() == WHITE ? v : -v;
   ss << "NNUE evaluation        " << 0.01 * UCI::to_cp(v) << " (white side)\n";
-
-  v = evaluate(pos);
+  Value pureEval = VALUE_NONE;
+  v = evaluate(pos, pureEval);
   v = pos.side_to_move() == WHITE ? v : -v;
   ss << "Final evaluation       " << 0.01 * UCI::to_cp(v) << " (white side)";
   ss << " [with scaled NNUE, ...]";
