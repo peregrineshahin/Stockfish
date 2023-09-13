@@ -785,7 +785,7 @@ namespace {
     if (   !PvNode
         && (ss-1)->currentMove != MOVE_NULL
         && (ss-1)->statScore < 17329
-        &&  eval >= beta
+        &&  ttValue >= beta // in case of VALUE_NONE it is always >= beta
         &&  eval >= ss->staticEval
         &&  ss->staticEval >= beta - 21 * depth + 258
         && !excludedMove
