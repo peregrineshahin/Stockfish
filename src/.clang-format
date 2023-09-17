@@ -8,7 +8,7 @@ AlignOperands: AlignAfterOperator
 AlignTrailingComments: true
 AllowShortEnumsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: true
-AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: true
 AlwaysBreakTemplateDeclarations: No
 BreakBeforeBinaryOperators: None
