@@ -932,6 +932,7 @@ moves_loop: // When in check, search starts here
     // of this search was a fail low.
     bool likelyFailLow =    PvNode
                          && ttMove
+                         && ttValue < beta // Hit Rate (%) 99.5474
                          && (tte->bound() & BOUND_UPPER)
                          && tte->depth() >= depth;
 
