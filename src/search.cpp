@@ -1158,6 +1158,11 @@ moves_loop: // When in check, search starts here
           && pos.has_repeated())
           r += 2;
 
+      if (   move == (ss-2)->excludedMove 
+          || move == (ss-4)->excludedMove
+          || move == (ss-6)->excludedMove )
+          r -= 2;
+
       // Increase reduction if next ply has a lot of fail high (~5 Elo)
       if ((ss+1)->cutoffCnt > 3)
           r++;
