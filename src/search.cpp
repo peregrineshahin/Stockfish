@@ -1440,10 +1440,32 @@ moves_loop: // When in check, search starts here
     ss->inCheck = pos.checkers();
     moveCount = 0;
 
-    // Step 2. Check for an immediate draw or maximum ply reached
-    if (   pos.is_draw(ss->ply)
+    // Check for the available remaining time
+    if (thisThread == Threads.main())
+        static_cast<MainThread*>(thisThread)->check_time();
+
+    // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
+    if (PvNode && thisThread->selDepth < ss->ply + 1)
+        thisThread->selDepth = ss->ply + 1;
+
+
+    // Step 2. Check for aborted search and immediate draw
+    if (   Threads.stop.load(std::memory_order_relaxed)
+        || pos.is_draw(ss->ply)
         || ss->ply >= MAX_PLY)
         return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
+
+    // Step 3. Mate distance pruning. Even if we mate at the next move our score
+    // would be at best mate_in(ss->ply+1), but if alpha is already bigger because
+    // a shorter mate was found upward in the tree then there is no need to search
+    // because we will never beat the current alpha. Same logic but with reversed
+    // signs apply also in the opposite condition of being mated instead of giving
+    // mate. In this case, return a fail-high score.
+    alpha = std::max(mated_in(ss->ply), alpha);
+    beta = std::min(mate_in(ss->ply+1), beta);
+    if (alpha >= beta)
+        return alpha;
+
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
