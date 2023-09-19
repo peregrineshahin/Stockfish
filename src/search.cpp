@@ -50,6 +50,7 @@ namespace Stockfish {
 namespace Search {
 
   LimitsType Limits;
+  int checkTimeCounter = 0;
 }
 
 namespace Tablebases {
@@ -1440,8 +1441,20 @@ moves_loop: // When in check, search starts here
     ss->inCheck = pos.checkers();
     moveCount = 0;
 
-    // Step 2. Check for an immediate draw or maximum ply reached
-    if (   pos.is_draw(ss->ply)
+    if (checkTimeCounter == 3)
+        checkTimeCounter = 0;
+
+    // Check for the available remaining time
+    if (checkTimeCounter++ == 0 && thisThread == Threads.main())
+        static_cast<MainThread*>(thisThread)->check_time();
+
+    // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
+    if (PvNode && thisThread->selDepth < ss->ply + 1)
+        thisThread->selDepth = ss->ply + 1;
+
+    // Step 2. Check for aborted search and immediate draw
+    if (   Threads.stop.load(std::memory_order_relaxed)
+        || pos.is_draw(ss->ply)
         || ss->ply >= MAX_PLY)
         return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
 
