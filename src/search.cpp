@@ -1124,6 +1124,7 @@ moves_loop: // When in check, search starts here
                                                                 [movedPiece]
                                                                 [to_sq(move)];
 
+      bool excludedQuiet = bool(excludedMove) && !pos.capture_stage(excludedMove);
       // Step 16. Make the move
       pos.do_move(move, st, givesCheck);
 
@@ -1136,6 +1137,10 @@ moves_loop: // When in check, search starts here
       // Decrease reduction if opponent's move count is high (~1 Elo)
       if ((ss-1)->moveCount > 8)
           r--;
+
+      if (   excludedQuiet
+          && to_sq(move) == to_sq(excludedMove))
+          r += 2;
 
       // Increase reduction for cut nodes (~3 Elo)
       if (cutNode)
