@@ -555,7 +555,7 @@ namespace {
     Depth extension, newDepth;
     Value bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool givesCheck, improving, priorCapture, singularQuietLMR;
-    bool capture, moveCountPruning, ttCapture;
+    bool capture, moveCountPruning, ttCapture, excludedCapture;
     Piece movedPiece;
     int moveCount, captureCount, quietCount;
 
@@ -616,6 +616,7 @@ namespace {
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
             : ss->ttHit    ? tte->move() : MOVE_NONE;
     ttCapture = ttMove && pos.capture_stage(ttMove);
+    excludedCapture = bool(excludedMove) && pos.capture_stage(excludedMove);
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -1136,6 +1137,10 @@ moves_loop: // When in check, search starts here
       // Decrease reduction if opponent's move count is high (~1 Elo)
       if ((ss-1)->moveCount > 8)
           r--;
+
+      if (   excludedCapture
+          && to_sq(move) == to_sq(excludedMove))
+          r += 2;
 
       // Increase reduction for cut nodes (~3 Elo)
       if (cutNode)
