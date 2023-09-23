@@ -624,7 +624,7 @@ namespace {
 
     if (!excludedMove)
     {
-        if (ss->ttPV && !PvNode)
+        if (ss->ttPv && !PvNode)
             dbg_hit_on(bool(pos.has_repeated()));
     }
 
