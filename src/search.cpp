@@ -622,6 +622,12 @@ namespace {
     if (!excludedMove)
         ss->ttPv = PvNode || (ss->ttHit && tte->is_pv());
 
+    if (!excludedMove)
+    {
+        if (ss->ttPV && !PvNode)
+            dbg_hit_on(bool(pos.has_repeated()));
+    }
+
     // At non-PV nodes we check for an early TT cutoff
     if (  !PvNode
         && !excludedMove
