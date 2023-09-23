@@ -930,10 +930,16 @@ moves_loop: // When in check, search starts here
     // Indicate PvNodes that will probably fail low if the node was searched
     // at a depth equal to or greater than the current depth, and the result
     // of this search was a fail low.
-    bool likelyFailLow =    PvNode
-                         && ttMove
-                         && (tte->bound() & BOUND_UPPER)
-                         && tte->depth() >= depth;
+    bool likelyFailLow  =    PvNode
+                          && ttMove
+                          && (tte->bound() & BOUND_UPPER)
+                          && tte->depth() >= depth;
+
+    bool likelyFailHigh =    PvNode
+                          && ttMove
+                          && (tte->bound() == BOUND_LOWER)
+                          && ttValue >= beta
+                          && tte->depth() + 3 >= depth;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1145,9 +1151,14 @@ moves_loop: // When in check, search starts here
       if (ttCapture)
           r++;
 
+      if (likelyFailHigh)
+          r += 2;
+      
       // Decrease reduction for PvNodes (~2 Elo)
-      if (PvNode)
+      else if (PvNode)
           r--;
+
+      dbg_hit_on(likelyFailHigh);
 
       // Decrease reduction if ttMove has been singularly extended (~1 Elo)
       if (singularQuietLMR)
