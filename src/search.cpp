@@ -1497,6 +1497,8 @@ moves_loop: // When in check, search starts here
                 tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
                           DEPTH_NONE, MOVE_NONE, ss->staticEval);
 
+            ss->cutoffCnt += 1 + !ttMove;
+            assert(bestValue >= beta); // Fail high
             return bestValue;
         }
 
@@ -1627,7 +1629,11 @@ moves_loop: // When in check, search starts here
                 if (value < beta) // Update alpha here!
                     alpha = value;
                 else
-                    break; // Fail high
+                {
+                  ss->cutoffCnt += 1 + !ttMove;
+                  assert(value >= beta); // Fail high
+                  break;
+                }
             }
         }
     }
