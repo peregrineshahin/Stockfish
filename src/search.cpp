@@ -1441,6 +1441,7 @@ moves_loop: // When in check, search starts here
     Thread* thisThread = pos.this_thread();
     bestMove = MOVE_NONE;
     ss->inCheck = pos.checkers();
+    (ss+2)->cutoffCnt = 0;
     moveCount = 0;
 
     // Step 2. Check for an immediate draw or maximum ply reached
@@ -1629,7 +1630,12 @@ moves_loop: // When in check, search starts here
                 if (value < beta) // Update alpha here!
                     alpha = value;
                 else
-                    break; // Fail high
+                {
+                  if (value < beta + 23)
+                      ss->cutoffCnt += 1 + !ttMove;
+                  assert(value >= beta); // Fail high
+                  break; // Fail high
+                }
             }
         }
     }
