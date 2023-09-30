@@ -1625,7 +1625,13 @@ moves_loop: // When in check, search starts here
                     update_pv(ss->pv, move, (ss+1)->pv);
 
                 if (value < beta) // Update alpha here!
+                {
+                  if (   beta  <  14362
+                      && value > -12393)
+                      depth--;
+
                     alpha = value;
+                }
                 else
                     break; // Fail high
             }
