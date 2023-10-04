@@ -1053,7 +1053,7 @@ moves_loop: // When in check, search starts here
            /* &&  ttValue != VALUE_NONE Already implicit in the next condition */
               &&  abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY
               && (tte->bound() & BOUND_LOWER)
-              &&  tte->depth() >= depth - 3)
+              &&  tte->depth() >= depth - 4)
           {
               Value singularBeta = ttValue - (82 + 65 * (ss->ttPv && !PvNode)) * depth / 64;
               Depth singularDepth = (depth - 1) / 2;
@@ -1061,6 +1061,9 @@ moves_loop: // When in check, search starts here
               ss->excludedMove = move;
               value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
               ss->excludedMove = MOVE_NONE;
+
+              if (tte->depth() == depth - 4)
+                  extension--;
 
               if (value < singularBeta)
               {
@@ -1072,7 +1075,7 @@ moves_loop: // When in check, search starts here
                       && value < singularBeta - 21
                       && ss->doubleExtensions <= 11)
                   {
-                      extension = 2;
+                      extension = 2 + (tte->depth() == depth - 4);
                       depth += depth < 13;
                   }
               }
@@ -1087,15 +1090,15 @@ moves_loop: // When in check, search starts here
 
               // If the eval of ttMove is greater than beta, we reduce it (negative extension) (~7 Elo)
               else if (ttValue >= beta)
-                  extension = -2 - !PvNode;
+                  extension += -2 - !PvNode;
 
               // If we are on a cutNode, reduce it based on depth (negative extension) (~1 Elo)
               else if (cutNode)
-                  extension = depth < 17 ? -3 : -1;
+                  extension += depth < 17 ? -3 : -1;
 
               // If the eval of ttMove is less than value, we reduce it (negative extension) (~1 Elo)
               else if (ttValue <= value)
-                  extension = -1;
+                  extension += -1;
           }
 
           // Check extensions (~1 Elo)
@@ -1113,7 +1116,7 @@ moves_loop: // When in check, search starts here
 
       // Add extension to new depth
       newDepth += extension;
-      ss->doubleExtensions = (ss-1)->doubleExtensions + (extension == 2);
+      ss->doubleExtensions = (ss-1)->doubleExtensions + (extension >= 2);
 
       // Speculative prefetch as early as possible
       prefetch(TT.first_entry(pos.key_after(move)));
