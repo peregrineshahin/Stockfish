@@ -770,7 +770,15 @@ namespace {
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
+        {
+            if (!priorCapture && prevSq != SQ_NONE)
+            {
+                int bonus = (depth > 5) + (PvNode || cutNode) + (value < alpha - 800) + ((ss-1)->moveCount > 12);
+                update_continuation_histories(ss-1, pos.piece_on(prevSq), prevSq, stat_bonus(depth) * bonus);
+                thisThread->mainHistory[~us][from_to((ss-1)->currentMove)] << stat_bonus(depth) * bonus / 2;
+            }
             return value;
+        }
     }
 
     // Step 8. Futility pruning: child node (~40 Elo)
