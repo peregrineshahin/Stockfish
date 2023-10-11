@@ -1642,8 +1642,7 @@ moves_loop: // When in check, search starts here
     if (ss->inCheck && bestValue == -VALUE_INFINITE)
     {
         assert(!MoveList<LEGAL>(pos).size());
-
-        return mated_in(ss->ply); // Plies to mate from the root
+        return VALUE_TB_LOSS_IN_MAX_PLY + 1;
     }
 
     // Save gathered info in transposition table
