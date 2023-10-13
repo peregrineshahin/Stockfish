@@ -628,7 +628,8 @@ namespace {
         && !excludedMove
         && tte->depth() > depth
         && ttValue != VALUE_NONE // Possible in case of TT access race or if !ttHit
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER))
+        && (pos.rule50_count() < 90))
     {
         // If ttMove is quiet, update move sorting heuristics on TT hit (~2 Elo)
         if (ttMove)
@@ -651,11 +652,7 @@ namespace {
                 update_continuation_histories(ss, pos.moved_piece(ttMove), to_sq(ttMove), penalty);
             }
         }
-
-        // Partial workaround for the graph history interaction problem
-        // For high rule50 counts don't produce transposition table cutoffs.
-        if (pos.rule50_count() < 90)
-            return ttValue;
+        return ttValue;
     }
 
     // Step 5. Tablebases probe
@@ -1333,7 +1330,7 @@ moves_loop: // When in check, search starts here
 
 
       // If the move is worse than some previously searched move, remember it, to update its stats later
-      if (move != bestMove && moveCount <= 32)
+      if (move != bestMove && moveCount <= 32 && pos.rule50_count() < 90)
       {
           if (capture)
               capturesSearched[captureCount++] = move;
