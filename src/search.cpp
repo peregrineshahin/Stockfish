@@ -616,7 +616,7 @@ namespace {
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
             : ss->ttHit    ? tte->move() : MOVE_NONE;
-    ttCapture = ttMove && pos.capture_stage(ttMove);
+    ttCapture = ttMove && pos.capture(ttMove);
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -873,7 +873,7 @@ namespace {
         while ((move = mp.next_move()) != MOVE_NONE)
             if (move != excludedMove && pos.legal(move))
             {
-                assert(pos.capture_stage(move));
+                assert(pos.capture(move));
 
                 ss->currentMove = move;
                 ss->continuationHistory = &thisThread->continuationHistory[ss->inCheck]
@@ -970,7 +970,7 @@ moves_loop: // When in check, search starts here
           (ss+1)->pv = nullptr;
 
       extension = 0;
-      capture = pos.capture_stage(move);
+      capture = pos.capture(move);
       movedPiece = pos.moved_piece(move);
       givesCheck = pos.gives_check(move);
 
@@ -1537,7 +1537,7 @@ moves_loop: // When in check, search starts here
             continue;
 
         givesCheck = pos.gives_check(move);
-        capture = pos.capture_stage(move);
+        capture = pos.capture(move);
 
         moveCount++;
 
@@ -1724,7 +1724,7 @@ moves_loop: // When in check, search starts here
 
     int quietMoveBonus = stat_bonus(depth + 1);
 
-    if (!pos.capture_stage(bestMove))
+    if (!pos.capture(bestMove))
     {
         int bestMoveBonus = bestValue > beta + 168 ? quietMoveBonus  // larger bonus
                                             : stat_bonus(depth);     // smaller bonus

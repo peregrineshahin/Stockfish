@@ -97,7 +97,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePiece
 {
   assert(!pos.checkers());
 
-  stage = PROBCUT_TT + !(ttm && pos.capture_stage(ttm)
+  stage = PROBCUT_TT + !(ttm && pos.capture(ttm)
                              && pos.pseudo_legal(ttm)
                              && pos.see_ge(ttm, threshold));
 }
@@ -169,7 +169,7 @@ void MovePicker::score() {
 
       else // Type == EVASIONS
       {
-          if (pos.capture_stage(m))
+          if (pos.capture(m))
               m.value =  PieceValue[pos.piece_on(to_sq(m))]
                        - Value(type_of(pos.moved_piece(m)))
                        + (1 << 28);
@@ -244,7 +244,7 @@ top:
 
   case REFUTATION:
       if (select<Next>([&](){ return    *cur != MOVE_NONE
-                                    && !pos.capture_stage(*cur)
+                                    && !pos.capture(*cur)
                                     &&  pos.pseudo_legal(*cur); }))
           return *(cur - 1);
       ++stage;
