@@ -982,7 +982,8 @@ moves_loop: // When in check, search starts here
       Depth r = reduction(improving, depth, moveCount, delta, thisThread->rootDelta);
 
       // Step 14. Pruning at shallow depth (~120 Elo). Depth conditions are important for mate finding.
-      if (  !rootNode
+      if (   !rootNode
+          && !ss->inCheck
           && pos.non_pawn_material(us)
           && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
       {
@@ -999,7 +1000,6 @@ moves_loop: // When in check, search starts here
               // Futility pruning for captures (~2 Elo)
               if (   !givesCheck
                   && lmrDepth < 7
-                  && !ss->inCheck
                   && ss->staticEval + 188 + 206 * lmrDepth + PieceValue[pos.piece_on(to_sq(move))]
                    + captureHistory[movedPiece][to_sq(move)][type_of(pos.piece_on(to_sq(move)))] / 7 < alpha)
                   continue;
@@ -1025,8 +1025,7 @@ moves_loop: // When in check, search starts here
               lmrDepth = std::max(lmrDepth, -2);
 
               // Futility pruning: parent node (~13 Elo)
-              if (   !ss->inCheck
-                  && lmrDepth < 13
+              if (   lmrDepth < 13
                   && ss->staticEval + 115 + 122 * lmrDepth <= alpha)
                   continue;
 
@@ -1524,8 +1523,6 @@ moves_loop: // When in check, search starts here
                                       contHist,
                                       prevSq);
 
-    int quietCheckEvasions = 0;
-
     // Step 5. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != MOVE_NONE)
@@ -1542,10 +1539,10 @@ moves_loop: // When in check, search starts here
         moveCount++;
 
         // Step 6. Pruning.
-        if (bestValue > VALUE_TB_LOSS_IN_MAX_PLY && pos.non_pawn_material(us))
+        if (bestValue > VALUE_TB_LOSS_IN_MAX_PLY && pos.non_pawn_material(us) && !ss->inCheck)
         {
             // Futility pruning and moveCount pruning (~10 Elo)
-            if (   !givesCheck
+            if (    !givesCheck
                 &&  to_sq(move) != prevSq
                 &&  futilityBase > VALUE_TB_LOSS_IN_MAX_PLY
                 &&  type_of(move) != PROMOTION)
@@ -1579,13 +1576,7 @@ moves_loop: // When in check, search starts here
                     continue;
                 }
             }
-
-            // We prune after the second quiet check evasion move, where being 'in check' is
-            // implicitly checked through the counter, and being a 'quiet move' apart from
-            // being a tt move is assumed after an increment because captures are pushed ahead.
-            if (quietCheckEvasions > 1)
-                break;
-
+            
             // Continuation history based pruning (~3 Elo)
             if (   !capture
                 && (*contHist[0])[pos.moved_piece(move)][to_sq(move)] < 0
@@ -1606,8 +1597,6 @@ moves_loop: // When in check, search starts here
                                                                   [capture]
                                                                   [pos.moved_piece(move)]
                                                                   [to_sq(move)];
-
-        quietCheckEvasions += !capture && ss->inCheck;
 
         // Step 7. Make and search the move
         pos.do_move(move, st, givesCheck);
