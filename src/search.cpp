@@ -79,10 +79,8 @@ namespace {
   // Reductions lookup table initialized at startup
   int Reductions[MAX_MOVES]; // [depth or moveNumber]
 
-  Depth reduction(bool i, Depth d, int mn, Value delta, Value rootDelta) {
-    int reductionScale = Reductions[d] * Reductions[mn];
-    return  (reductionScale + 1560 - int(delta) * 945 / int(rootDelta)) / 1024
-          + (!i && reductionScale > 791);
+  Depth reduction(bool i, Depth d, int mn) {
+    return Reductions[d] * Reductions[mn] / 1024 + 2 - i;
   }
 
   constexpr int futility_move_count(bool improving, Depth depth) {
@@ -977,9 +975,10 @@ moves_loop: // When in check, search starts here
       // Calculate new depth for this move
       newDepth = depth - 1;
 
-      Value delta = beta - alpha;
+      Depth r = reduction(improving, depth, moveCount);
 
-      Depth r = reduction(improving, depth, moveCount, delta, thisThread->rootDelta);
+      if (PvNode)
+          r -= (beta - alpha) / thisThread->rootDelta;
 
       // Step 14. Pruning at shallow depth (~120 Elo). Depth conditions are important for mate finding.
       if (  !rootNode
