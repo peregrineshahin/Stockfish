@@ -907,9 +907,9 @@ moves_loop: // When in check, search starts here
 
     // Step 12. A small Probcut idea, when we are in check (~4 Elo)
     probCutBeta = beta + 416;
-    if (   ss->inCheck
-        && !PvNode
+    if (   !PvNode
         && ttCapture
+        && (ss->inCheck || type_of(pos.piece_on(from_sq(ttMove))) == KING)
         && (tte->bound() & BOUND_LOWER)
         && tte->depth() >= depth - 4
         && ttValue >= probCutBeta
