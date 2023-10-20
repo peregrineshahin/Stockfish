@@ -1521,7 +1521,7 @@ moves_loop: // When in check, search starts here
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
-    while ((move = mp.next_move()) != MOVE_NONE)
+    while ((move = mp.next_move(bestValue > VALUE_TB_LOSS_IN_MAX_PLY)) != MOVE_NONE)
     {
         assert(is_ok(move));
 
