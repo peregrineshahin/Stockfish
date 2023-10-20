@@ -34,7 +34,7 @@ namespace {
     MAIN_TT, CAPTURE_INIT, GOOD_CAPTURE, REFUTATION, QUIET_INIT, QUIET, BAD_CAPTURE,
     EVASION_TT, EVASION_INIT, EVASION,
     PROBCUT_TT, PROBCUT_INIT, PROBCUT,
-    QSEARCH_TT, QCAPTURE_INIT, QCAPTURE, QCHECK_INIT, QCHECK
+    QSEARCH_TT, QCAPTURE_INIT, QCAPTURE, QCHECK_INIT, QCHECK, QQUIET_INIT, QQUIET
   };
 
   // partial_insertion_sort() sorts moves in descending order up to and including
@@ -315,7 +315,29 @@ top:
       [[fallthrough]];
 
   case QCHECK:
-      return select<Next>([](){ return true; });
+      if (select<Next>([&](){ return pos.gives_check(*cur);}))
+          return *(cur - 1);
+      else
+          ++stage;
+      [[fallthrough]];
+  
+  case QQUIET_INIT:
+      if (skipQuiets)
+          return MOVE_NONE;
+      cur = moves;
+      endMoves = generate<QUIETS>(pos, cur);
+      ++stage;
+      [[fallthrough]];
+
+  case QQUIET:
+      if (skipQuiets)
+          return MOVE_NONE;
+      if (select<Next>([&]() {
+             return depth != DEPTH_QS_CHECKS || !pos.gives_check(*cur);
+          }))
+          return *(cur - 1);
+      else
+          return MOVE_NONE;
   }
 
   assert(false);
