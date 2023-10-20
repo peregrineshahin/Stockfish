@@ -34,7 +34,7 @@ namespace {
     MAIN_TT, CAPTURE_INIT, GOOD_CAPTURE, REFUTATION, QUIET_INIT, QUIET, BAD_CAPTURE,
     EVASION_TT, EVASION_INIT, EVASION,
     PROBCUT_TT, PROBCUT_INIT, PROBCUT,
-    QSEARCH_TT, QCAPTURE_INIT, QCAPTURE, QCHECK_INIT, QCHECK
+    QSEARCH_TT, QCAPTURE_INIT, QCAPTURE, QCHECK_INIT, QCHECK, QQUIET_INIT, QQUIET
   };
 
   // partial_insertion_sort() sorts moves in descending order up to and including
@@ -297,25 +297,43 @@ top:
 
   case QCAPTURE:
       if (select<Next>([&](){ return   depth > DEPTH_QS_RECAPTURES
+                                    || !skipQuiets
                                     || to_sq(*cur) == recaptureSquare; }))
           return *(cur - 1);
-
-      // If we did not find any move and we do not try checks, we have finished
-      if (depth != DEPTH_QS_CHECKS)
-          return MOVE_NONE;
 
       ++stage;
       [[fallthrough]];
 
   case QCHECK_INIT:
-      cur = moves;
-      endMoves = generate<QUIET_CHECKS>(pos, cur);
-
+      // If we did not find any move and we do not try checks, we have finished
+      if (depth == DEPTH_QS_CHECKS)
+      {
+          cur = moves;
+          endMoves = generate<QUIET_CHECKS>(pos, cur);
+      }
       ++stage;
       [[fallthrough]];
 
   case QCHECK:
-      return select<Next>([](){ return true; });
+      if (depth == DEPTH_QS_CHECKS)
+          return select<Next>([](){ return true; });
+      ++stage;
+      [[fallthrough]];
+
+  case QQUIET_INIT:
+      if (skipQuiets)
+          return MOVE_NONE;
+      cur = moves;
+      endMoves = generate<QUIETS>(pos, cur);
+      ++stage;
+      [[fallthrough]];
+
+  case QQUIET:
+      if (select<Next>([&]() {
+             return depth != DEPTH_QS_CHECKS || !pos.gives_check(*cur);
+          }))
+          return *(cur - 1);
+      [[fallthrough]];
   }
 
   assert(false);
