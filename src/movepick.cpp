@@ -333,7 +333,6 @@ top:
              return depth != DEPTH_QS_CHECKS || !pos.gives_check(*cur);
           }))
           return *(cur - 1);
-      ++stage;
       [[fallthrough]];
   }
 
