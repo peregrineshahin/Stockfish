@@ -334,7 +334,7 @@ top:
           }))
           return *(cur - 1);
   }
-
+  std::cerr << stage << std::endl << std::endl;
   assert(false);
   return MOVE_NONE; // Silence warning
 }
