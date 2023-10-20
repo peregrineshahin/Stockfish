@@ -787,8 +787,7 @@ namespace {
         return eval;
 
     // Step 9. Null move search with verification search (~35 Elo)
-    if (   false
-        && !PvNode
+    if (   !PvNode
         && (ss-1)->currentMove != MOVE_NULL
         && (ss-1)->statScore < 17257
         &&  eval >= beta
@@ -984,6 +983,7 @@ moves_loop: // When in check, search starts here
 
       // Step 14. Pruning at shallow depth (~120 Elo). Depth conditions are important for mate finding.
       if (  !rootNode
+          && false
           && pos.non_pawn_material(us)
           && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
       {
