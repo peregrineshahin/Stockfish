@@ -529,15 +529,25 @@ namespace {
     if (depth <= 0)
         return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
+    Value valueDraw = value_draw(pos.this_thread());
     // Check if we have an upcoming move that draws by repetition, or
     // if the opponent had an alternative move earlier to this position.
-    if (   !rootNode
-        && alpha < VALUE_DRAW
-        && pos.has_game_cycle(ss->ply))
+    
+    if (!rootNode)
     {
-        alpha = value_draw(pos.this_thread());
-        if (alpha >= beta)
-            return alpha;
+        if (   alpha == beta - 1
+            && valueDraw >= beta
+            && pos.has_game_cycle(ss->ply))
+            return valueDraw;
+
+        if (   alpha != beta - 1
+            && alpha < VALUE_DRAW
+            && pos.has_game_cycle(ss->ply))
+        {
+            alpha = valueDraw;
+            if (alpha >= beta)
+                return alpha;
+        }
     }
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
@@ -584,7 +594,7 @@ namespace {
             || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
             return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
-                                                        : value_draw(pos.this_thread());
+                                                        : valueDraw;
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply+1), but if alpha is already bigger because
@@ -1402,19 +1412,24 @@ moves_loop: // When in check, search starts here
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
 
-    assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
-    assert(PvNode || (alpha == beta - 1));
-    assert(depth <= 0);
+    Value valueDraw = value_draw(pos.this_thread());
+    if (   alpha == beta - 1
+        && valueDraw >= beta
+        && pos.has_game_cycle(ss->ply))
+        return valueDraw;
 
-    // Check if we have an upcoming move that draws by repetition, or
-    // if the opponent had an alternative move earlier to this position.
-    if (   alpha < VALUE_DRAW
+    if (   alpha != beta - 1
+        && alpha < VALUE_DRAW
         && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(pos.this_thread());
+        alpha = valueDraw;
         if (alpha >= beta)
             return alpha;
     }
+
+    assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
+    assert(PvNode || (alpha == beta - 1));
+    assert(depth <= 0);
 
     Move pv[MAX_PLY+1];
     StateInfo st;
