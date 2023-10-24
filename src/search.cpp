@@ -1539,7 +1539,8 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
           &thisThread
              ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][to_sq(move)];
 
-        quietCheckEvasions += !capture && ss->inCheck;
+        if (!capture && ss->inCheck)
+            quietCheckEvasions += 1 + (move == ttMove);
 
         // Step 7. Make and search the move
         pos.do_move(move, st, givesCheck);
