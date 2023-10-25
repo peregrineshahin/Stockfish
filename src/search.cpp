@@ -613,6 +613,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
               : ss->ttHit ? tte->move()
                           : MOVE_NONE;
     ttCapture = ttMove && pos.capture_stage(ttMove);
+    CapturePieceToHistory& captureHistory = thisThread->captureHistory;
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -624,7 +625,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         && ttValue != VALUE_NONE  // Possible in case of TT access race or if !ttHit
         && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
     {
-        // If ttMove is quiet, update move sorting heuristics on TT hit (~2 Elo)
+        // update ttMove sorting heuristics (~2 Elo)
         if (ttMove)
         {
             if (ttValue >= beta)
@@ -632,6 +633,12 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
                 // Bonus for a quiet ttMove that fails high (~2 Elo)
                 if (!ttCapture)
                     update_quiet_stats(pos, ss, ttMove, stat_bonus(depth));
+                else
+                {
+                    // Increase stats for ttCapture that fails high
+                    PieceType captured = type_of(pos.piece_on(to_sq(ttMove)));
+                    captureHistory[pos.moved_piece(ttMove)][to_sq(ttMove)][captured] << stat_bonus(depth);
+                }
 
                 // Extra penalty for early quiet moves of
                 // the previous ply (~0 Elo on STC, ~2 Elo on LTC).
@@ -703,8 +710,6 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
             }
         }
     }
-
-    CapturePieceToHistory& captureHistory = thisThread->captureHistory;
 
     // Step 6. Static evaluation of the position
     if (ss->inCheck)
