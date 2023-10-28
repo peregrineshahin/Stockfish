@@ -787,7 +787,14 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
              >= beta
         && eval >= beta && eval < 29462  // smaller than TB wins
         && (!ttMove || ttCapture))
+    {
+        if (!priorCapture && prevSq != SQ_NONE)
+        {
+            update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -stat_bonus(depth));
+            thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)] << -stat_bonus(depth);
+        }
         return eval;
+    }
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != MOVE_NULL && (ss - 1)->statScore < 17257 && eval >= beta
