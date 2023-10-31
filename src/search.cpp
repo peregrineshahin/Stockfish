@@ -1414,10 +1414,10 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
-    // Decide whether or not to include checks: this fixes also the type of
-    // TT entry depth that we are going to use. Note that in qsearch we use
-    // only two types of depth in TT: DEPTH_QS_CHECKS or DEPTH_QS_NO_CHECKS.
-    ttDepth = ss->inCheck || depth >= DEPTH_QS_CHECKS ? DEPTH_QS_CHECKS : DEPTH_QS_NO_CHECKS;
+    // Decides the replacement and cutoff priority of the tt entry
+    ttDepth = ss->inCheck || depth == DEPTH_QS_CHECKS ? DEPTH_QS_CHECKS
+            : depth > DEPTH_QS_RECAPTURES             ? DEPTH_QS_NO_CHECKS
+                                                      : DEPTH_QS_RECAPTURES;
 
     // Step 3. Transposition table lookup
     posKey  = pos.key();
