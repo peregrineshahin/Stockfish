@@ -1457,8 +1457,8 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         if (bestValue >= beta)
         {
             if (!ss->ttHit)
-                tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER, DEPTH_NONE,
-                          MOVE_NONE, ss->staticEval);
+                tte->save(posKey, value_to_tt(bestValue, ss->ply), pvHit, BOUND_LOWER, 0, MOVE_NONE,
+                          ss->staticEval);
 
             return bestValue;
         }
