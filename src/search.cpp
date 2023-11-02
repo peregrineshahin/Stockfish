@@ -1429,7 +1429,7 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && tte->depth() >= ttDepth
         && ttValue != VALUE_NONE  // Only in case of TT access race or if !ttHit
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+        && (tte->depth() > 0 || (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER))))
         return ttValue;
 
     // Step 4. Static evaluation of the position
