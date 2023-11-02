@@ -860,7 +860,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         while ((move = mp.next_move()) != MOVE_NONE)
             if (move != excludedMove && pos.legal(move))
             {
-                assert(pos.capture_stage(move));
+                assert(pos.capture_stage(move) || pos.gives_check(move));
 
                 // Prefetch the TT entry for the resulting position
                 prefetch(TT.first_entry(pos.key_after(move)));

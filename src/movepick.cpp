@@ -337,7 +337,11 @@ top:
         return select<Best>([]() { return true; });
 
     case PROBCUT :
-        return select<Next>([&]() { return pos.see_ge(*cur, threshold); });
+        if (select<Next>([&]() { return pos.see_ge(*cur, threshold); }))
+            return *(cur - 1);
+
+        stage = QCHECK_INIT;
+        goto top;
 
     case QCAPTURE :
         if (select<Next>(
