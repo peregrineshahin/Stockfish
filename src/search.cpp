@@ -803,7 +803,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         pos.undo_null_move();
 
         // Do not return unproven mate or TB scores
-        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
+        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY
+            && (abs(nullValue) > VALUE_DRAW + 1 || abs(eval) < 7))
         {
             if (thisThread->nmpMinPly || depth < 14)
                 return nullValue;
