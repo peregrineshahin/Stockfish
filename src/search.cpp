@@ -761,26 +761,28 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
               : (ss - 4)->staticEval != VALUE_NONE ? ss->staticEval > (ss - 4)->staticEval
                                                    : true;
 
-    // Step 7. Razoring (~1 Elo)
-    // If eval is really low check with qsearch if it can exceed alpha, if it can't,
-    // return a fail low.
-    // Adjust razor margin according to cutoffCnt. (~1 Elo)
-    if (eval < alpha - 474 - (270 - 174 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
+    if (!ttMove || ttCapture || thisThread->mainHistory[us][from_to(ttMove)] > 989)
     {
-        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-        if (value < alpha)
-            return value;
-    }
+        // Step 7. Razoring (~1 Elo)
+        // If eval is really low check with qsearch if it can exceed alpha, if it can't,
+        // return a fail low.
+        // Adjust razor margin according to cutoffCnt. (~1 Elo)
+        if (eval < alpha - 474 - (270 - 174 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
+        {
+            value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+            if (value < alpha)
+                return value;
+        }
 
-    // Step 8. Futility pruning: child node (~40 Elo)
-    // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 9
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, improving)
-               - (ss - 1)->statScore / 321
-             >= beta
-        && eval >= beta && eval < 29462  // smaller than TB wins
-        && (!ttMove || ttCapture))
-        return eval;
+        // Step 8. Futility pruning: child node (~40 Elo)
+        // The depth condition is important for mate finding.
+        if (!ss->ttPv && depth < 9
+            && eval - futility_margin(depth, cutNode && !ss->ttHit, improving)
+                   - (ss - 1)->statScore / 321
+                 >= beta
+            && eval >= beta && eval < 29462)  // smaller than TB wins
+            return eval;
+    }
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != MOVE_NULL && (ss - 1)->statScore < 17257 && eval >= beta
