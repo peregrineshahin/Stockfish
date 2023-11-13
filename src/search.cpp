@@ -782,11 +782,10 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         && (!ttMove || ttCapture))
         return eval;
 
-    // Step 9. Null move search with verification search (~35 Elo)
+    // Step 9. Null move search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != MOVE_NULL && (ss - 1)->statScore < 17257 && eval >= beta
         && eval >= ss->staticEval && ss->staticEval >= beta - 24 * depth + 281 && !excludedMove
-        && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
-        && beta > VALUE_TB_LOSS_IN_MAX_PLY)
+        && pos.non_pawn_material(us) && beta > VALUE_TB_LOSS_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
 
@@ -803,24 +802,10 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         pos.undo_null_move();
 
         // Do not return unproven mate or TB scores
-        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
-        {
-            if (thisThread->nmpMinPly || depth < 14)
-                return nullValue;
-
-            assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
-
-            // Do verification search at high depths, with null move pruning disabled
-            // until ply exceeds nmpMinPly.
-            thisThread->nmpMinPly = ss->ply + 3 * (depth - R) / 4;
-
-            Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
-
-            thisThread->nmpMinPly = 0;
-
-            if (v >= beta)
-                return nullValue;
-        }
+        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY && depth < 14)
+            return nullValue;
+        else
+            depth = std::max(depth - R, 1);
     }
 
     // Step 10. Internal iterative reductions (~9 Elo)
