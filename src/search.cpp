@@ -187,10 +187,10 @@ uint64_t perft(Position& pos, Depth depth) {
 // Called at startup to initialize various lookup tables
 void Search::init() {
 
-    for (int d = 1; i < MAX_PLY; ++d)
+    for (int d = 1; d < MAX_PLY; ++d)
         Reductions_depth[d] = int((20.37 + std::log(Threads.size()) / 2) * std::log(d));
 
-    for (int mn = 1; i < MAX_PLY; ++mn)
+    for (int mn = 1; mn < MAX_MOVES; ++mn)
         Reductions_moves[mn] = int((20.37 + std::log(Threads.size()) / 2) * std::log(mn));
 }
 
