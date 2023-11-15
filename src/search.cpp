@@ -821,6 +821,12 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
             if (v >= beta)
                 return nullValue;
         }
+        else if (nullValue < alpha - 100)
+        {
+            value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+            if (value < alpha)
+                return value;
+        }
     }
 
     // Step 10. Internal iterative reductions (~9 Elo)
