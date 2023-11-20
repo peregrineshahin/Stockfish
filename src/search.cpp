@@ -1147,6 +1147,9 @@ moves_loop:  // When in check, search starts here
         if (singularQuietLMR)
             r--;
 
+        if (extension <= -2 && moveCount == 2)
+            r += 2;
+
         // Increase reduction on repetition (~1 Elo)
         if (move == (ss - 4)->currentMove && pos.has_repeated())
             r += 2;
