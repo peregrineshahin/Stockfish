@@ -556,7 +556,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     bool     givesCheck, improving, priorCapture, singularQuietLMR;
     bool     capture, moveCountPruning, ttCapture;
     Piece    movedPiece;
-    int      moveCount, captureCount, quietCount;
+    int      moveCount, captureCount, quietCount, ttCutoffs;
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
@@ -615,6 +615,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
               : ss->ttHit ? tte->move()
                           : MOVE_NONE;
     ttCapture = ttMove && pos.capture_stage(ttMove);
+    ttCutoffs = ss->ttHit ? tte->ttCutoffs() : 0;
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -653,7 +654,10 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
+        {
+            tte->incrementCutoffs();
             return ttValue;
+        }
     }
 
     // Step 5. Tablebases probe
@@ -1140,6 +1144,9 @@ moves_loop:  // When in check, search starts here
 
         // Decrease reduction for PvNodes (~2 Elo)
         if (PvNode)
+            r--;
+
+        if (ttCutoffs > 2)
             r--;
 
         // Decrease reduction if a quiet ttMove has been singularly extended (~1 Elo)
