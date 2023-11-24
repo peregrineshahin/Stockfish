@@ -136,6 +136,8 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth = 0
 
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
+Value eval_to_tt(Value v, int shuffling);
+Value eval_from_tt(Value v, int shuffling);
 void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_stats(const Position& pos, Stack* ss, Move move, int bonus);
@@ -726,7 +728,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
-        ss->staticEval = eval = tte->eval();
+        ss->staticEval = eval = eval_from_tt(tte->eval(), pos.rule50_count());
         if (eval == VALUE_NONE)
             ss->staticEval = eval = evaluate(pos);
         else if (PvNode)
@@ -740,7 +742,9 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     {
         ss->staticEval = eval = evaluate(pos);
         // Save static evaluation into the transposition table
-        tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
+
+        tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE,
+                  eval_to_tt(eval, pos.rule50_count()));
     }
 
     // Use static evaluation difference to improve quiet move ordering (~4 Elo)
@@ -885,7 +889,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
                 {
                     // Save ProbCut data into transposition table
                     tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3,
-                              move, ss->staticEval);
+                              move, eval_to_tt(ss->staticEval, pos.rule50_count()));
                     return value - (probCutBeta - beta);
                 }
             }
@@ -1365,7 +1369,9 @@ moves_loop:  // When in check, search starts here
                   bestValue >= beta    ? BOUND_LOWER
                   : PvNode && bestMove ? BOUND_EXACT
                                        : BOUND_UPPER,
-                  depth, bestMove, ss->staticEval);
+                  depth, bestMove,
+                  ss->staticEval != VALUE_NONE ? eval_to_tt(ss->staticEval, pos.rule50_count())
+                                               : VALUE_NONE);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1450,7 +1456,8 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         if (ss->ttHit)
         {
             // Never assume anything about values stored in TT
-            if ((ss->staticEval = bestValue = tte->eval()) == VALUE_NONE)
+            if ((ss->staticEval = bestValue = eval_from_tt(tte->eval(), pos.rule50_count()))
+                == VALUE_NONE)
                 ss->staticEval = bestValue = evaluate(pos);
 
             // ttValue can be used as a better position evaluation (~13 Elo)
@@ -1468,7 +1475,7 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         {
             if (!ss->ttHit)
                 tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER, DEPTH_NONE,
-                          MOVE_NONE, ss->staticEval);
+                          MOVE_NONE, eval_to_tt(ss->staticEval, pos.rule50_count()));
 
             return bestValue;
         }
@@ -1610,7 +1617,9 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
 
     // Save gathered info in transposition table
     tte->save(posKey, value_to_tt(bestValue, ss->ply), pvHit,
-              bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, ttDepth, bestMove, ss->staticEval);
+              bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, ttDepth, bestMove,
+              ss->staticEval != VALUE_NONE ? eval_to_tt(ss->staticEval, pos.rule50_count())
+                                           : VALUE_NONE);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1626,6 +1635,13 @@ Value value_to_tt(Value v, int ply) {
     assert(v != VALUE_NONE);
 
     return v >= VALUE_TB_WIN_IN_MAX_PLY ? v + ply : v <= VALUE_TB_LOSS_IN_MAX_PLY ? v - ply : v;
+}
+
+Value eval_to_tt(Value v, int shuffling) {
+
+    assert(v != VALUE_NONE);
+
+    return v * 214 / (200 - shuffling);
 }
 
 
@@ -1656,6 +1672,13 @@ Value value_from_tt(Value v, int ply, int r50c) {
     }
 
     return v;
+}
+
+Value eval_from_tt(Value v, int shuffling) {
+
+    assert(v != VALUE_NONE);
+
+    return v * (200 - shuffling) / 214;
 }
 
 
