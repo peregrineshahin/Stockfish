@@ -55,6 +55,7 @@ void TTEntry::save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev) 
     }
 }
 
+void TTEntry::incrementCutoffs() { failHighCutoffs16++; }
 
 // Sets the size of the transposition table,
 // measured in megabytes. Transposition table consists of a power of 2 number
