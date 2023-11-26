@@ -995,10 +995,14 @@ moves_loop:  // When in check, search starts here
             }
             else
             {
-                int history = (*contHist[0])[movedPiece][to_sq(move)]
-                            + (*contHist[1])[movedPiece][to_sq(move)]
-                            + (*contHist[3])[movedPiece][to_sq(move)]
-                            + thisThread->pawnHistory[pawn_structure(pos)][movedPiece][to_sq(move)];
+
+                int history =
+                  type_of(move) != CASTLING
+                    ? (*contHist[0])[movedPiece][to_sq(move)]
+                        + (*contHist[1])[movedPiece][to_sq(move)]
+                        + (*contHist[3])[movedPiece][to_sq(move)]
+                        + thisThread->pawnHistory[pawn_structure(pos)][movedPiece][to_sq(move)]
+                    : 0;
 
                 // Continuation history based pruning (~2 Elo)
                 if (lmrDepth < 6 && history < -3645 * depth)
@@ -1159,10 +1163,11 @@ moves_loop:  // When in check, search starts here
         else if (move == ttMove)
             r = 0;
 
-        ss->statScore = 2 * thisThread->mainHistory[us][from_to(move)]
-                      + (*contHist[0])[movedPiece][to_sq(move)]
-                      + (*contHist[1])[movedPiece][to_sq(move)]
-                      + (*contHist[3])[movedPiece][to_sq(move)] - 3848;
+        ss->statScore = 2 * thisThread->mainHistory[us][from_to(move)] + type_of(move) != CASTLING
+                        ? (*contHist[0])[movedPiece][to_sq(move)]
+                            + (*contHist[1])[movedPiece][to_sq(move)]
+                            + (*contHist[3])[movedPiece][to_sq(move)] - 3848
+                        : 0;
 
         // Decrease/increase reduction for moves with a good/bad history (~25 Elo)
         r -= ss->statScore / (10216 + 3855 * (depth > 5 && depth < 23));
