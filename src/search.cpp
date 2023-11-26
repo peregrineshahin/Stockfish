@@ -603,7 +603,9 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     (ss + 2)->killers[0] = (ss + 2)->killers[1] = MOVE_NONE;
     (ss + 2)->cutoffCnt                         = 0;
     ss->doubleExtensions                        = (ss - 1)->doubleExtensions;
-    Square prevSq = is_ok((ss - 1)->currentMove) ? to_sq((ss - 1)->currentMove) : SQ_NONE;
+    Square prevSq = is_ok((ss - 1)->currentMove) && type_of((ss - 1)->currentMove) != CASTLING
+                    ? to_sq((ss - 1)->currentMove)
+                    : SQ_NONE;
     ss->statScore = 0;
 
     // Step 4. Transposition table lookup.
@@ -627,7 +629,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
     {
         // If ttMove is quiet, update move sorting heuristics on TT hit (~2 Elo)
-        if (ttMove)
+        if (ttMove && type_of(ttMove) != CASTLING)
         {
             if (ttValue >= beta)
             {
@@ -744,7 +746,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     }
 
     // Use static evaluation difference to improve quiet move ordering (~4 Elo)
-    if (is_ok((ss - 1)->currentMove) && !(ss - 1)->inCheck && !priorCapture)
+    if (is_ok((ss - 1)->currentMove) && !(ss - 1)->inCheck && !priorCapture
+        && type_of((ss - 1)->currentMove) != CASTLING)
     {
         int bonus = std::clamp(-18 * int((ss - 1)->staticEval + ss->staticEval), -1812, 1812);
         thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)] << bonus;
@@ -967,7 +970,8 @@ moves_loop:  // When in check, search starts here
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
-        if (!rootNode && pos.non_pawn_material(us) && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
+        if (!rootNode && pos.non_pawn_material(us) && bestValue > VALUE_TB_LOSS_IN_MAX_PLY
+            && type_of(move) != CASTLING)
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
             if (!moveCountPruning)
@@ -1096,7 +1100,7 @@ moves_loop:  // When in check, search starts here
                 extension = 1;
 
             // Quiet ttMove extensions (~1 Elo)
-            else if (PvNode && move == ttMove && move == ss->killers[0]
+            else if (PvNode && move == ttMove && move == ss->killers[0] && type_of(move) != CASTLING
                      && (*contHist[0])[movedPiece][to_sq(move)] >= 4194)
                 extension = 1;
 
@@ -1117,7 +1121,9 @@ moves_loop:  // When in check, search starts here
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
         ss->continuationHistory =
-          &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][to_sq(move)];
+          type_of(move) != CASTLING
+            ? &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][to_sq(move)]
+            : &thisThread->continuationHistory[0][0][NO_PIECE][0];
 
         // Step 16. Make the move
         pos.do_move(move, st, givesCheck);
@@ -1159,10 +1165,12 @@ moves_loop:  // When in check, search starts here
         else if (move == ttMove)
             r = 0;
 
-        ss->statScore = 2 * thisThread->mainHistory[us][from_to(move)]
-                      + (*contHist[0])[movedPiece][to_sq(move)]
-                      + (*contHist[1])[movedPiece][to_sq(move)]
-                      + (*contHist[3])[movedPiece][to_sq(move)] - 3848;
+        ss->statScore = type_of(move) != CASTLING
+                        ? 2 * thisThread->mainHistory[us][from_to(move)]
+                            + (*contHist[0])[movedPiece][to_sq(move)]
+                            + (*contHist[1])[movedPiece][to_sq(move)]
+                            + (*contHist[3])[movedPiece][to_sq(move)] - 3848
+                        : 0;
 
         // Decrease/increase reduction for moves with a good/bad history (~25 Elo)
         r -= ss->statScore / (10216 + 3855 * (depth > 5 && depth < 23));
@@ -1197,11 +1205,15 @@ moves_loop:  // When in check, search starts here
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
-                int bonus = value <= alpha ? -stat_malus(newDepth)
-                          : value >= beta  ? stat_bonus(newDepth)
-                                           : 0;
 
-                update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
+                if (type_of(move) != CASTLING)
+                {
+                    int bonus = value <= alpha ? -stat_malus(newDepth)
+                              : value >= beta  ? stat_bonus(newDepth)
+                                               : 0;
+
+                    update_continuation_histories(ss, movedPiece, to_sq(move), bonus);
+                }
             }
         }
 
@@ -1336,12 +1348,13 @@ moves_loop:  // When in check, search starts here
         bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
 
     // If there is a move that produces search value greater than alpha we update the stats of searched moves
-    else if (bestMove)
+    else if (bestMove && type_of(bestMove) != CASTLING
+             && type_of((ss - 1)->currentMove) != CASTLING)
         update_all_stats(pos, ss, bestMove, bestValue, beta, prevSq, quietsSearched, quietCount,
                          capturesSearched, captureCount, depth);
 
     // Bonus for prior countermove that caused the fail low
-    else if (!priorCapture && prevSq != SQ_NONE)
+    else if (!priorCapture && prevSq != SQ_NONE && type_of((ss - 1)->currentMove) != CASTLING)
     {
         int bonus = (depth > 6) + (PvNode || cutNode) + (bestValue < alpha - 657)
                   + ((ss - 1)->moveCount > 10);
@@ -1486,7 +1499,10 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     // to search the moves. Because the depth is <= 0 here, only captures,
     // queen promotions, and other checks (only if depth >= DEPTH_QS_CHECKS)
     // will be generated.
-    Square     prevSq = is_ok((ss - 1)->currentMove) ? to_sq((ss - 1)->currentMove) : SQ_NONE;
+    Square prevSq = is_ok((ss - 1)->currentMove) && type_of(((ss - 1)->currentMove)) != CASTLING
+                    ? to_sq((ss - 1)->currentMove)
+                    : SQ_NONE;
+
     MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &thisThread->captureHistory,
                   contHist, &thisThread->pawnHistory, prevSq);
 
@@ -1508,7 +1524,8 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         moveCount++;
 
         // Step 6. Pruning
-        if (bestValue > VALUE_TB_LOSS_IN_MAX_PLY && pos.non_pawn_material(us))
+        if (bestValue > VALUE_TB_LOSS_IN_MAX_PLY && pos.non_pawn_material(us)
+            && type_of(move) != CASTLING)
         {
             // Futility pruning and moveCount pruning (~10 Elo)
             if (!givesCheck && to_sq(move) != prevSq && futilityBase > VALUE_TB_LOSS_IN_MAX_PLY
@@ -1566,8 +1583,10 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         // Update the current move
         ss->currentMove = move;
         ss->continuationHistory =
-          &thisThread
-             ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][to_sq(move)];
+          type_of(move) != CASTLING
+            ? &thisThread
+                 ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][to_sq(move)]
+            : &thisThread->continuationHistory[0][0][NO_PIECE][0];
 
         quietCheckEvasions += !capture && ss->inCheck;
 
