@@ -1457,10 +1457,13 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
                 && (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER)))
                 bestValue = ttValue;
         }
-        else
-            // In case of null move search, use previous static eval with a different sign
-            ss->staticEval = bestValue =
-              (ss - 1)->currentMove != MOVE_NULL ? evaluate(pos) : -(ss - 1)->staticEval;
+        else if ((ss - 1)->currentMove != MOVE_NULL)
+            ss->staticEval = bestValue = evaluate(pos);
+        else  // In case of null move search, use previous static eval with a different sign
+        {
+            ss->staticEval = -(ss - 1)->staticEval;
+            bestValue      = -VALUE_INFINITE;
+        }
 
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
@@ -1606,6 +1609,11 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
 
         return mated_in(ss->ply);  // Plies to mate from the root
     }
+
+    // if no captures or checks after a null-move,
+    // assign bestValue to staticEval to avoid saving -VALUE_INFINITE in TT.
+    if (bestValue == -VALUE_INFINITE)
+        bestValue = ss->staticEval;
 
     // Save gathered info in transposition table
     tte->save(posKey, value_to_tt(bestValue, ss->ply), pvHit,
