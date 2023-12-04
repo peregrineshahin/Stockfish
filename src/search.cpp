@@ -1400,7 +1400,7 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
 
     TTEntry* tte;
     Key      posKey;
-    Move     ttMove, move, bestMove;
+    Move     ttMove, move, bestMove, excludedMove;
     Depth    ttDepth;
     Value    bestValue, value, ttValue, futilityValue, futilityBase;
     bool     pvHit, givesCheck, capture;
@@ -1434,9 +1434,10 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove  = ss->ttHit ? tte->move() : MOVE_NONE;
     pvHit   = ss->ttHit && tte->is_pv();
+    excludedMove = ss->excludedMove;
 
     // At non-PV nodes we check for an early TT cutoff
-    if (!PvNode && tte->depth() >= ttDepth
+    if (!PvNode && !excludedMove && tte->depth() >= ttDepth
         && ttValue != VALUE_NONE  // Only in case of TT access race or if !ttHit
         && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
         return ttValue;
@@ -1446,7 +1447,9 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         bestValue = futilityBase = -VALUE_INFINITE;
     else
     {
-        if (ss->ttHit)
+        if (excludedMove)
+            bestValue = std::min(ss->staticEval, alpha);
+        else if (ss->ttHit)
         {
             // Never assume anything about values stored in TT
             if ((ss->staticEval = bestValue = tte->eval()) == VALUE_NONE)
@@ -1496,6 +1499,9 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     while ((move = mp.next_move()) != MOVE_NONE)
     {
         assert(is_ok(move));
+
+        if (move == excludedMove)
+            continue;
 
         // Check for legality
         if (!pos.legal(move))
@@ -1608,8 +1614,9 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     }
 
     // Save gathered info in transposition table
-    tte->save(posKey, value_to_tt(bestValue, ss->ply), pvHit,
-              bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, ttDepth, bestMove, ss->staticEval);
+    if (!excludedMove)
+        tte->save(posKey, value_to_tt(bestValue, ss->ply), pvHit,
+                  bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, ttDepth, bestMove, ss->staticEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
