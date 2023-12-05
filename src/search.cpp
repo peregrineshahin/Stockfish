@@ -526,6 +526,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
+    Thread* thisThread = pos.this_thread();
+
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
         return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
@@ -534,7 +536,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     // if the opponent had an alternative move earlier to this position.
     if (!rootNode && alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(pos.this_thread());
+        alpha = value_draw(thisThread);
         if (alpha >= beta)
             return alpha;
     }
@@ -555,17 +557,9 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool     givesCheck, improving, priorCapture, singularQuietLMR;
     bool     capture, moveCountPruning, ttCapture;
-    Piece    movedPiece;
     int      moveCount, captureCount, quietCount;
-
-    // Step 1. Initialize node
-    Thread* thisThread = pos.this_thread();
-    ss->inCheck        = pos.checkers();
-    priorCapture       = pos.captured_piece();
-    Color us           = pos.side_to_move();
-    moveCount = captureCount = quietCount = ss->moveCount = 0;
-    bestValue                                             = -VALUE_INFINITE;
-    maxValue                                              = VALUE_INFINITE;
+    Square   prevSq;
+    Piece    movedPiece;
 
     // Check for the available remaining time
     if (thisThread == Threads.main())
@@ -580,8 +574,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         // Step 2. Check for aborted search and immediate draw
         if (Threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
-                                                        : value_draw(pos.this_thread());
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : value_draw(thisThread);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -599,12 +592,22 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
+    // Step 1. Initialize node
+    ss->inCheck = pos.checkers();
+    bestValue = value = -VALUE_INFINITE;
+    maxValue          = VALUE_INFINITE;
+    priorCapture      = pos.captured_piece();
+    Color us          = pos.side_to_move();
+    prevSq            = is_ok((ss - 1)->currentMove) ? to_sq((ss - 1)->currentMove) : SQ_NONE;
+
+    ss->doubleExtensions   = (ss - 1)->doubleExtensions;
+    ss->statScore          = 0;
+    (ss + 2)->cutoffCnt    = 0;
     (ss + 1)->excludedMove = bestMove = MOVE_NONE;
     (ss + 2)->killers[0] = (ss + 2)->killers[1] = MOVE_NONE;
-    (ss + 2)->cutoffCnt                         = 0;
-    ss->doubleExtensions                        = (ss - 1)->doubleExtensions;
-    Square prevSq = is_ok((ss - 1)->currentMove) ? to_sq((ss - 1)->currentMove) : SQ_NONE;
-    ss->statScore = 0;
+
+    moveCount = captureCount = quietCount = ss->moveCount = 0;
+    moveCountPruning = singularQuietLMR = false;
 
     // Step 4. Transposition table lookup.
     excludedMove = ss->excludedMove;
@@ -776,16 +779,16 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 9
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving)
-               - (ss - 1)->statScore / 321
-             >= beta
+             >= beta + (ss - 1)->statScore / 321
         && eval >= beta && eval < 29462  // smaller than TB wins
         && (!ttMove || ttCapture))
         return (eval + beta) / 2;
 
     // Step 9. Null move search with verification search (~35 Elo)
-    if (!PvNode && (ss - 1)->currentMove != MOVE_NULL && (ss - 1)->statScore < 17257 && eval >= beta
-        && eval >= ss->staticEval && ss->staticEval >= beta - 24 * depth + 281 && !excludedMove
-        && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
+    if ((ss - 1)->currentMove != MOVE_NULL  // Double null-moves are not allowed
+        && !PvNode && eval >= beta && eval >= ss->staticEval
+        && ss->staticEval >= beta - 24 * depth + 281 && !excludedMove && pos.non_pawn_material(us)
+        && (ss - 1)->statScore < 17257 && ss->ply >= thisThread->nmpMinPly
         && beta > VALUE_TB_LOSS_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
@@ -912,16 +915,14 @@ moves_loop:  // When in check, search starts here
     Move countermove =
       prevSq != SQ_NONE ? thisThread->counterMoves[pos.piece_on(prevSq)][prevSq] : MOVE_NONE;
 
-    MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &captureHistory, contHist,
-                  &thisThread->pawnHistory, countermove, ss->killers);
-
-    value            = bestValue;
-    moveCountPruning = singularQuietLMR = false;
-
     // Indicate PvNodes that will probably fail low if the node was searched
     // at a depth equal to or greater than the current depth, and the result
     // of this search was a fail low.
     bool likelyFailLow = PvNode && ttMove && (tte->bound() & BOUND_UPPER) && tte->depth() >= depth;
+
+    // Initialize a movepicker for the main loop
+    MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &captureHistory, contHist,
+                  &thisThread->pawnHistory, countermove, ss->killers);
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1385,11 +1386,13 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     assert(PvNode || (alpha == beta - 1));
     assert(depth <= 0);
 
+    Thread* thisThread = pos.this_thread();
+
     // Check if we have an upcoming move that draws by repetition, or
     // if the opponent had an alternative move earlier to this position.
     if (alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(pos.this_thread());
+        alpha = value_draw(thisThread);
         if (alpha >= beta)
             return alpha;
     }
@@ -1414,10 +1417,9 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         ss->pv[0]    = MOVE_NONE;
     }
 
-    Thread* thisThread = pos.this_thread();
-    bestMove           = MOVE_NONE;
-    ss->inCheck        = pos.checkers();
-    moveCount          = 0;
+    bestMove    = MOVE_NONE;
+    ss->inCheck = pos.checkers();
+    moveCount   = 0;
 
     // Step 2. Check for an immediate draw or maximum ply reached
     if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
