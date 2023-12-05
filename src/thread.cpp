@@ -31,7 +31,6 @@
 #include "misc.h"
 #include "movegen.h"
 #include "search.h"
-#include "syzygy/tbprobe.h"
 #include "tt.h"
 #include "uci.h"
 
@@ -188,9 +187,6 @@ void ThreadPool::start_thinking(Position&                 pos,
             || std::count(limits.searchmoves.begin(), limits.searchmoves.end(), m))
             rootMoves.emplace_back(m);
 
-    if (!rootMoves.empty())
-        Tablebases::rank_root_moves(pos, rootMoves);
-
     // After ownership transfer 'states' becomes empty, so if we stop the search
     // and call 'go' again without setting a new position states.get() == nullptr.
     assert(states.get() || setupStates.get());
@@ -205,7 +201,7 @@ void ThreadPool::start_thinking(Position&                 pos,
     // since they are read-only.
     for (Thread* th : threads)
     {
-        th->nodes = th->tbHits = th->nmpMinPly = th->bestMoveChanges = 0;
+        th->nodes = th->nmpMinPly = th->bestMoveChanges = 0;
         th->rootDepth = th->completedDepth = 0;
         th->rootMoves                      = rootMoves;
         th->rootPos.set(pos.fen(), pos.is_chess960(), &th->rootState, th);

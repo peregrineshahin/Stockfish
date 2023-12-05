@@ -54,7 +54,7 @@ class Thread {
     size_t       id() const { return idx; }
 
     size_t                pvIdx, pvLast;
-    std::atomic<uint64_t> nodes, tbHits, bestMoveChanges;
+    std::atomic<uint64_t> nodes, bestMoveChanges;
     int                   selDepth, nmpMinPly;
     Value                 bestValue, optimism[COLOR_NB];
 
@@ -101,7 +101,6 @@ struct ThreadPool {
 
     MainThread* main() const { return static_cast<MainThread*>(threads.front()); }
     uint64_t    nodes_searched() const { return accumulate(&Thread::nodes); }
-    uint64_t    tb_hits() const { return accumulate(&Thread::tbHits); }
     Thread*     get_best_thread() const;
     void        start_searching();
     void        wait_for_search_finished() const;
