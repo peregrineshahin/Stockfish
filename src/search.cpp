@@ -542,6 +542,10 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         alpha = value_draw(pos.this_thread());
         if (alpha >= beta)
             return alpha;
+
+        // Reduce all moves if we have found at least one score improvement
+        if (ss->ply >= 2 && depth > 2 && beta < 13782)
+            depth -= 2;
     }
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
