@@ -526,6 +526,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
+    bool guaranteedDraw = false;
+
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
         return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
@@ -537,6 +539,8 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         alpha = value_draw(pos.this_thread());
         if (alpha >= beta)
             return alpha;
+
+        guaranteedDraw = true;
     }
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
@@ -1140,7 +1144,7 @@ moves_loop:  // When in check, search starts here
 
         // Decrease reduction for PvNodes (~2 Elo)
         if (PvNode)
-            r--;
+            r -= 1 + guaranteedDraw;
 
         // Decrease reduction if a quiet ttMove has been singularly extended (~1 Elo)
         if (singularQuietLMR)
