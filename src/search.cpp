@@ -553,15 +553,15 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     Move     ttMove, move, excludedMove, bestMove;
     Depth    extension, newDepth;
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
-    bool     givesCheck, improving, priorCapture, singularQuietLMR;
+    bool     givesCheck, improving, singularQuietLMR;
     bool     capture, moveCountPruning, ttCapture;
-    Piece    movedPiece;
+    Piece    movedPiece, capturedPiece;
     int      moveCount, captureCount, quietCount;
 
     // Step 1. Initialize node
     Thread* thisThread = pos.this_thread();
     ss->inCheck        = pos.checkers();
-    priorCapture       = pos.captured_piece();
+    capturedPiece      = pos.captured_piece();
     Color us           = pos.side_to_move();
     moveCount = captureCount = quietCount = ss->moveCount = 0;
     bestValue                                             = -VALUE_INFINITE;
@@ -637,7 +637,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
 
                 // Extra penalty for early quiet moves of
                 // the previous ply (~0 Elo on STC, ~2 Elo on LTC).
-                if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
+                if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !capturedPiece)
                     update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                                   -stat_malus(depth + 1));
             }
@@ -743,13 +743,23 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, MOVE_NONE, eval);
     }
 
-    // Use static evaluation difference to improve quiet move ordering (~4 Elo)
-    if (is_ok((ss - 1)->currentMove) && !(ss - 1)->inCheck && !priorCapture)
+    // Use static evaluation difference to improve move ordering (~4 Elo)
+    if (is_ok((ss - 1)->currentMove) && !(ss - 1)->inCheck)
     {
         int bonus = std::clamp(-13 * int((ss - 1)->staticEval + ss->staticEval), -1555, 1452);
-        thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)] << bonus;
-        if (type_of(pos.piece_on(prevSq)) != PAWN && type_of((ss - 1)->currentMove) != PROMOTION)
-            thisThread->pawnHistory[pawn_structure(pos)][pos.piece_on(prevSq)][prevSq] << bonus / 4;
+        if (!capturedPiece)
+        {
+            thisThread->mainHistory[~us][from_to((ss - 1)->currentMove)] << bonus;
+            if (type_of(pos.piece_on(prevSq)) != PAWN
+                && type_of((ss - 1)->currentMove) != PROMOTION)
+                thisThread->pawnHistory[pawn_structure(pos)][pos.piece_on(prevSq)][prevSq]
+                  << bonus / 4;
+        }
+        else
+        {
+            movedPiece = pos.piece_on(prevSq);
+            captureHistory[movedPiece][prevSq][type_of(capturedPiece)] << bonus;
+        }
     }
 
     // Set up the improving flag, which is true if current static evaluation is
@@ -1340,7 +1350,7 @@ moves_loop:  // When in check, search starts here
                          capturesSearched, captureCount, depth);
 
     // Bonus for prior countermove that caused the fail low
-    else if (!priorCapture && prevSq != SQ_NONE)
+    else if (!capturedPiece && prevSq != SQ_NONE)
     {
         int bonus = (depth > 6) + (PvNode || cutNode) + (bestValue < alpha - 656)
                   + ((ss - 1)->moveCount > 10);
