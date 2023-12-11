@@ -35,23 +35,26 @@ TranspositionTable TT;  // Our global transposition table
 
 // Populates the TTEntry with a new node's data, possibly
 // overwriting an old position. The update is not atomic and can be racy.
-void TTEntry::save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev) {
+void TTEntry::save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, int shuffling) {
 
-    // Preserve any existing move for the same position
-    if (m || uint16_t(k) != key16)
-        move16 = uint16_t(m);
-
-    // Overwrite less valuable entries (cheapest checks first)
-    if (b == BOUND_EXACT || uint16_t(k) != key16 || d - DEPTH_OFFSET + 2 * pv > depth8 - 4)
+    if (shuffling < 90)
     {
-        assert(d > DEPTH_OFFSET);
-        assert(d < 256 + DEPTH_OFFSET);
+        // Preserve any existing move for the same position
+        if (m || uint16_t(k) != key16)
+            move16 = uint16_t(m);
 
-        key16     = uint16_t(k);
-        depth8    = uint8_t(d - DEPTH_OFFSET);
-        genBound8 = uint8_t(TT.generation8 | uint8_t(pv) << 2 | b);
-        value16   = int16_t(v);
-        eval16    = int16_t(ev);
+        // Overwrite less valuable entries (cheapest checks first)
+        if (b == BOUND_EXACT || uint16_t(k) != key16 || d - DEPTH_OFFSET + 2 * pv > depth8 - 4)
+        {
+            assert(d > DEPTH_OFFSET);
+            assert(d < 256 + DEPTH_OFFSET);
+
+            key16     = uint16_t(k);
+            depth8    = uint8_t(d - DEPTH_OFFSET);
+            genBound8 = uint8_t(TT.generation8 | uint8_t(pv) << 2 | b);
+            value16   = int16_t(v);
+            eval16    = int16_t(ev);
+        }
     }
 }
 
