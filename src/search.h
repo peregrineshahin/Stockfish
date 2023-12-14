@@ -40,6 +40,7 @@ struct Stack {
     Move*           pv;
     PieceToHistory* continuationHistory;
     int             ply;
+    Move            ttMove;
     Move            currentMove;
     Move            excludedMove;
     Move            killers[2];
@@ -48,7 +49,6 @@ struct Stack {
     int             moveCount;
     bool            inCheck;
     bool            ttPv;
-    bool            ttHit;
     int             doubleExtensions;
     int             cutoffCnt;
 };
