@@ -1152,6 +1152,10 @@ moves_loop:  // When in check, search starts here
         if (move == (ss - 4)->currentMove && pos.has_repeated())
             r += 2;
 
+        // Decrease reduction if we move a threatened piece
+        if (depth > 9 && (mp.threatenedPieces & from_sq(move)))
+            r--;
+
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
             r++;
