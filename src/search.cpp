@@ -1040,7 +1040,7 @@ moves_loop:  // When in check, search starts here
             // scaling. Their values are optimized to time controls of 180+1.8 and longer
             // so changing them requires tests at these types of time controls.
             // Recursive singular search is avoided.
-            if (!rootNode && move == ttMove && !excludedMove
+            if (!rootNode && move == ttMove && !excludedMove && to_sq(move) != prevSq
                 && depth >= 4 - (thisThread->completedDepth > 27) + 2 * (PvNode && tte->is_pv())
                 && abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && (tte->bound() & BOUND_LOWER)
                 && tte->depth() >= depth - 3)
@@ -1102,7 +1102,7 @@ moves_loop:  // When in check, search starts here
                      && (*contHist[0])[movedPiece][to_sq(move)] >= 4325)
                 extension = 1;
 
-            // Recapture extensions (~1 Elo)
+            // Extension for capturing the piece that was just moved (~1 Elo)
             else if (PvNode && move == ttMove && to_sq(move) == prevSq
                      && captureHistory[movedPiece][to_sq(move)][type_of(pos.piece_on(to_sq(move)))]
                           > 4146)
