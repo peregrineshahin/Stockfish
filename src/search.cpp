@@ -888,7 +888,13 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
                     // Save ProbCut data into transposition table
                     tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3,
                               move, ss->staticEval);
-                    return value - (probCutBeta - beta);
+                    if (std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+                    {
+                        assert(value - (probCutBeta - beta) > VALUE_TB_LOSS_IN_MAX_PLY);
+                        return value - (probCutBeta - beta);
+                    }
+                    else
+                        return value;
                 }
             }
 
@@ -1613,7 +1619,7 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         return mated_in(ss->ply);  // Plies to mate from the root
     }
 
-    if (abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY)
+    if (std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY)
         bestValue = bestValue >= beta ? (3 * bestValue + beta) / 4 : bestValue;
 
     // Save gathered info in transposition table
