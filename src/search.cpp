@@ -1480,12 +1480,13 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
 
                 return bestValue;
             }
+            std::cerr << std::endl << bestValue << std::endl;
             bestValue = std::min((alpha + beta) / 2, beta - 1);
             if (bestValue <= -VALUE_INFINITE || bestValue >= VALUE_INFINITE)
             {
-                std::cerr << std::endl << bestValue << std::endl;
-                std::cerr << std::endl << alpha << std::endl;
-                std::cerr << std::endl << beta << std::endl;
+                std::cerr << bestValue << std::endl;
+                std::cerr << alpha << std::endl;
+                std::cerr << beta << std::endl;
             }
         }
 
