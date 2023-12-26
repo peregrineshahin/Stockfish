@@ -602,6 +602,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     (ss + 1)->excludedMove = bestMove = MOVE_NONE;
     (ss + 2)->killers[0] = (ss + 2)->killers[1] = MOVE_NONE;
     (ss + 2)->cutoffCnt                         = 0;
+    ss->razoring                                = false;
     ss->doubleExtensions                        = (ss - 1)->doubleExtensions;
     Square prevSq = is_ok((ss - 1)->currentMove) ? to_sq((ss - 1)->currentMove) : SQ_NONE;
     ss->statScore = 0;
@@ -769,9 +770,13 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
     // Adjust razor margin according to cutoffCnt. (~1 Elo)
     if (eval < alpha - 472 - (284 - 165 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
     {
+        ss->razoring = true;
+
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
             return value;
+
+        ss->razoring = false;
     }
 
     // Step 8. Futility pruning: child node (~40 Elo)
@@ -1404,7 +1409,7 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     Key      posKey;
     Move     ttMove, move, bestMove;
     Depth    ttDepth;
-    Value    bestValue, value, ttValue, futilityValue, futilityBase;
+    Value    bestValue, value, ttValue, futilityValue, futilityBase, originalAlpha;
     bool     pvHit, givesCheck, capture;
     int      moveCount;
     Color    us = pos.side_to_move();
@@ -1440,6 +1445,8 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove  = ss->ttHit ? tte->move() : MOVE_NONE;
     pvHit   = ss->ttHit && tte->is_pv();
+
+    originalAlpha = alpha;
 
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && tte->depth() >= ttDepth
@@ -1621,6 +1628,8 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
               bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, ttDepth, bestMove, ss->staticEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
+
+    assert(!(ss->razoring && bestValue == originalAlpha && bestValue <= VALUE_TB_LOSS_IN_MAX_PLY));
 
     return bestValue;
 }
