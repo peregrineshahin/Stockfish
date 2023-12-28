@@ -1732,7 +1732,7 @@ void update_all_stats(const Position& pos,
                                           to_sq(quietsSearched[i]), -quietMoveMalus);
         }
     }
-    else
+    else if (bestValue >= beta)
     {
         // Increase stats for the best move in case it was a capture move
         captured = type_of(pos.piece_on(to_sq(bestMove)));
