@@ -781,7 +781,7 @@ Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, boo
                - (ss - 1)->statScore / 337
              >= beta
         && eval >= beta && eval < 29008  // smaller than TB wins
-        && (!ttMove || ttCapture))
+        && (!ttMove || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY)
         return (eval + beta) / 2;
 
     // Step 9. Null move search with verification search (~35 Elo)
