@@ -1454,10 +1454,11 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
         ss->pv[0]    = MOVE_NONE;
     }
 
-    Thread* thisThread = pos.this_thread();
-    bestMove           = MOVE_NONE;
-    ss->inCheck        = pos.checkers();
-    moveCount          = 0;
+    Thread* thisThread  = pos.this_thread();
+    bestMove            = MOVE_NONE;
+    ss->inCheck         = pos.checkers();
+    moveCount           = 0;
+    (ss + 2)->cutoffCnt = 0;
 
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
@@ -1652,7 +1653,11 @@ Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
                 if (value < beta)  // Update alpha here!
                     alpha = value;
                 else
-                    break;  // Fail high
+                {
+                    ss->cutoffCnt += 1 + !ttMove;
+                    assert(value >= beta);  // Fail high
+                    break;                  // Fail high
+                }
             }
         }
     }
