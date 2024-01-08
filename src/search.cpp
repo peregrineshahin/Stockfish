@@ -439,14 +439,20 @@ void Thread::search() {
             // Sort the PV lines searched so far and update the GUI
             std::stable_sort(rootMoves.begin() + pvFirst, rootMoves.begin() + pvIdx + 1);
 
-            if (mainThread && (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000))
+            if (mainThread && (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000)
+                && !(Threads.stop && rootMoves[0].uciScore <= VALUE_TB_LOSS_IN_MAX_PLY))
                 sync_cout << UCI::pv(rootPos, rootDepth) << sync_endl;
         }
 
         if (!Threads.stop)
             completedDepth = rootDepth;
 
-        if (rootMoves[0].pv[0] != lastBestMove)
+        if (Threads.stop && rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
+        {
+            rootMoves[0].pv = std::vector<Move>(1, lastBestMove);
+            rootMoves[0].score = rootMoves[0].previousScore;
+        }
+        else if (rootMoves[0].pv[0] != lastBestMove)
         {
             lastBestMove      = rootMoves[0].pv[0];
             lastBestMoveDepth = rootDepth;
