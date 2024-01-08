@@ -147,7 +147,6 @@ class Logger {
 
 }  // namespace
 
-
 // Returns the full name of the current Stockfish version.
 // For local dev compiles we try to append the commit sha and commit date
 // from git if that fails only the local compilation date is set and "nogit" is specified:
@@ -761,5 +760,4 @@ CommandLine::CommandLine(int _argc, char** _argv) :
     if (binaryDirectory.find("." + pathSeparator) == 0)
         binaryDirectory.replace(0, 1, workingDirectory);
 }
-
 }  // namespace Stockfish
