@@ -239,20 +239,20 @@ Thread* ThreadPool::get_best_thread() const {
     for (Thread* th : threads)
         if (bestThread->rootMoves[0].score >= VALUE_TB_WIN_IN_MAX_PLY)
         {
-            // Make sure we pick the shortest mate
+            // Make sure we pick the shortest mate / TB conversion
             if (th->rootMoves[0].score > bestThread->rootMoves[0].score)
                 bestThread = th;
         }
-        else if ((bestThread->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY
-                  || th->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
-                 && th->rootMoves[0].score != -VALUE_INFINITE
-                 && bestThread->rootMoves[0].score != -VALUE_INFINITE)
+        else if (bestThread->rootMoves[0].score != -VALUE_INFINITE
+                 && bestThread->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
         {
-            // Make sure we pick the shortest mated
-            if (th->rootMoves[0].score < bestThread->rootMoves[0].score)
+            // Make sure we pick the shortest mated / TB conversion
+            if (th->rootMoves[0].score != -VALUE_INFINITE
+                && th->rootMoves[0].score < bestThread->rootMoves[0].score)
                 bestThread = th;
         }
         else if (th->rootMoves[0].score >= VALUE_TB_WIN_IN_MAX_PLY
+                 || th->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY
                  || (th->rootMoves[0].score > VALUE_TB_LOSS_IN_MAX_PLY
                      && (votes[th->rootMoves[0].pv[0]] > votes[bestThread->rootMoves[0].pv[0]]
                          || (votes[th->rootMoves[0].pv[0]] == votes[bestThread->rootMoves[0].pv[0]]
