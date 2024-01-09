@@ -243,7 +243,10 @@ Thread* ThreadPool::get_best_thread() const {
             if (th->rootMoves[0].score > bestThread->rootMoves[0].score)
                 bestThread = th;
         }
-        else if (bestThread->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
+        else if ((bestThread->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY
+                  || th->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
+                 && th->rootMoves[0].score != -VALUE_INFINITE
+                 && bestThread->rootMoves[0].score != -VALUE_INFINITE)
         {
             // Make sure we pick the shortest mated
             if (th->rootMoves[0].score < bestThread->rootMoves[0].score)
