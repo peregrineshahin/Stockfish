@@ -444,9 +444,9 @@ void Thread::search() {
             if (mainThread
                 && (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000)
                 // A thread that aborted search can have mated-in/TB-loss PV and score
-                // that cannot be trusted i.e. it can be delayed or refuted if we have had time
-                // to fully search other root-moves, thus we will suppress this cout
-                // and use later for this thread a proven score/PV (from the previous iteration).
+                // that cannot be trusted, i.e. it can be delayed or refuted if we would have
+                // had time to fully search other root-moves. Thus we suppress this output and
+                // below pick a proven score/PV for this thread (from the previous iteration).
                 && !(Threads.abortedSearch && rootMoves[0].uciScore <= VALUE_TB_LOSS_IN_MAX_PLY))
                 sync_cout << UCI::pv(rootPos, rootDepth) << sync_endl;
         }
@@ -454,7 +454,7 @@ void Thread::search() {
         if (!Threads.stop)
             completedDepth = rootDepth;
 
-        // We make sure not to pick an unproven mated-in scores,
+        // We make sure not to pick an unproven mated-in score,
         // in case this thread prematurely stopped search (aborted-search).
         if (Threads.abortedSearch && rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
         {
@@ -1947,8 +1947,8 @@ void MainThread::check_time() {
         return;
 
     if (
-      // We rely on the fact that we can at least use the mainthread previous root-search score and PV
-      // in a multithreaded environment to prove mated-in scores.
+      // Later we rely on the fact that we can at least use the mainthread previous
+      // root-search score and PV in a multithreaded environment to prove mated-in scores.
       completedDepth >= 1
       && ((Limits.use_time_management() && (elapsed > Time.maximum() || stopOnPonderhit))
           || (Limits.movetime && elapsed >= Limits.movetime)
