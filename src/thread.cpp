@@ -227,32 +227,47 @@ Thread* ThreadPool::get_best_thread() const {
         votes[th->worker->rootMoves[0].pv[0]] += thread_value(th);
 
     for (Thread* th : threads)
-        if (bestThread->worker->rootMoves[0].score >= VALUE_TB_WIN_IN_MAX_PLY)
+    {
+        auto bestThreadScore = bestThread->worker->rootMoves[0].score;
+        auto newThreadScore  = th->worker->rootMoves[0].score;
+
+        auto newThreadPV  = th->worker->rootMoves[0].pv;
+        auto bestThreadPV = bestThread->worker->rootMoves[0].pv;
+
+        auto bestThreadVote = votes[newThreadPV[0]];
+        auto newThreadVote  = votes[bestThreadPV[0]];
+
+
+        bool bestThreadInProvenWin = bestThreadScore >= VALUE_TB_WIN_IN_MAX_PLY;
+        bool newThreadinProvenWin  = newThreadScore >= VALUE_TB_WIN_IN_MAX_PLY;
+
+        bool bestThreadInProvenLoss =
+          bestThreadScore != -VALUE_INFINITE && bestThreadScore <= VALUE_TB_LOSS_IN_MAX_PLY;
+        bool newThreadInProvenLoss =
+          newThreadScore != -VALUE_INFINITE && newThreadScore <= VALUE_TB_LOSS_IN_MAX_PLY;
+
+        bool noTruncatedPV = newThreadVote == bestThreadVote
+                          && thread_value(th) * int(newThreadPV.size() > 2)
+                               > thread_value(bestThread) * int(bestThreadPV.size() > 2);
+
+
+        if (bestThreadInProvenWin)
         {
             // Make sure we pick the shortest mate / TB conversion
-            if (th->worker->rootMoves[0].score > bestThread->worker->rootMoves[0].score)
+            if (newThreadScore > bestThreadScore)
                 bestThread = th;
         }
-        else if (bestThread->worker->rootMoves[0].score != -VALUE_INFINITE
-                 && bestThread->worker->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
+        else if (bestThreadInProvenLoss)
         {
             // Make sure we pick the shortest mated / TB conversion
-            if (th->worker->rootMoves[0].score != -VALUE_INFINITE
-                && th->worker->rootMoves[0].score < bestThread->worker->rootMoves[0].score)
+            if (newThreadInProvenLoss && newThreadScore < bestThreadScore)
                 bestThread = th;
         }
-        else if (th->worker->rootMoves[0].score >= VALUE_TB_WIN_IN_MAX_PLY
-                 || (th->worker->rootMoves[0].score != -VALUE_INFINITE
-                     && th->worker->rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
-                 || (th->worker->rootMoves[0].score > VALUE_TB_LOSS_IN_MAX_PLY
-                     && (votes[th->worker->rootMoves[0].pv[0]]
-                           > votes[bestThread->worker->rootMoves[0].pv[0]]
-                         || (votes[th->worker->rootMoves[0].pv[0]]
-                               == votes[bestThread->worker->rootMoves[0].pv[0]]
-                             && thread_value(th) * int(th->worker->rootMoves[0].pv.size() > 2)
-                                  > thread_value(bestThread)
-                                      * int(bestThread->worker->rootMoves[0].pv.size() > 2)))))
+        else if (newThreadinProvenWin || newThreadInProvenLoss
+                 || (newThreadScore > VALUE_TB_LOSS_IN_MAX_PLY
+                     && (newThreadVote > bestThreadVote || noTruncatedPV)))
             bestThread = th;
+    }
 
     return bestThread;
 }
