@@ -277,10 +277,11 @@ void Thread::search() {
   // Allocate stack with extra size to allow access from (ss-7) to (ss+2)
   // (ss-7) is needed for update_continuation_histories(ss-1, ...) which accesses (ss-6)
   // (ss+2) is needed for initialization of statScore and killers
-  Stack stack[MAX_PLY+10], *ss = stack+7;
-  Move  pv[MAX_PLY+1];
   Value alpha, beta, delta;
-  Move  lastBestMove = MOVE_NONE;
+  Stack             stack[MAX_PLY + 10], *ss = stack + 7;
+  Move              pv[MAX_PLY + 1];
+  Value             lastBestScore = -VALUE_INFINITE;
+  std::vector<Move> lastBestPV    = {MOVE_NONE};
   Depth lastBestMoveDepth = 0;
   MainThread* mainThread = (this == Threads.main() ? Threads.main() : nullptr);
   double timeReduction = 1, totBestMoveChanges = 0;
@@ -428,19 +429,38 @@ void Thread::search() {
           // Sort the PV lines searched so far and update the GUI
           std::stable_sort(rootMoves.begin() + pvFirst, rootMoves.begin() + pvIdx + 1);
 
-          if (    mainThread
-              && (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000))
-              sync_cout << UCI::pv(rootPos, rootDepth) << sync_endl;
+            if (mainThread
+                && (Threads.stop || pvIdx + 1 == multiPV || Time.elapsed() > 3000)
+                // A thread that aborted search can have mated-in/TB-loss PV and score
+                // that cannot be trusted, i.e. it can be delayed or refuted if we would have
+                // had time to fully search other root-moves. Thus we suppress this output and
+                // below pick a proven score/PV for this thread (from the previous iteration).
+                && !(Threads.abortedSearch && rootMoves[0].uciScore <= VALUE_TB_LOSS_IN_MAX_PLY))
+                sync_cout << UCI::pv(rootPos, rootDepth) << sync_endl;
       }
 
       if (!Threads.stop)
           completedDepth = rootDepth;
 
-      if (rootMoves[0].pv[0] != lastBestMove)
-      {
-          lastBestMove = rootMoves[0].pv[0];
-          lastBestMoveDepth = rootDepth;
-      }
+        // We make sure not to pick an unproven mated-in score,
+        // in case this thread prematurely stopped search (aborted-search).
+        if (Threads.abortedSearch && rootMoves[0].score != -VALUE_INFINITE
+            && rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
+        {
+            // Bring the last best move to the front for best thread selection.
+            std::sort(rootMoves.begin(), rootMoves.end(),
+                      [lastBestPV](const RootMove& rootMove, const RootMove&) {
+                          return rootMove == lastBestPV[0];
+                      });
+            rootMoves[0].pv    = lastBestPV;
+            rootMoves[0].score = rootMoves[0].uciScore = lastBestScore;
+        }
+        else if (rootMoves[0].pv[0] != lastBestPV[0])
+        {
+            lastBestPV        = rootMoves[0].pv;
+            lastBestScore     = rootMoves[0].score;
+            lastBestMoveDepth = rootDepth;
+        }
 
       // Have we found a "mate in x"?
       if (   Limits.mate
@@ -1862,10 +1882,19 @@ void MainThread::check_time() {
   if (ponder)
       return;
 
-  if (   (Limits.use_time_management() && (elapsed > Time.maximum() || stopOnPonderhit))
-      || (Limits.movetime && elapsed >= Limits.movetime)
-      || (Limits.nodes && Threads.nodes_searched() >= uint64_t(Limits.nodes)))
+  if (
+      // Later we rely on the fact that we can at least use the mainthread previous
+      // root-search score and PV in a multithreaded environment to prove mated-in scores.
+      completedDepth >= 1
+      && ((Limits.use_time_management() && (elapsed > Time.maximum() || stopOnPonderhit))
+          || (Limits.movetime && elapsed >= Limits.movetime)
+          || (Limits.nodes && Threads.nodes_searched() >= uint64_t(Limits.nodes))))
+  {
       Threads.stop = true;
+      // Signal to all threads that they could have had an even better score
+      // if they continued searching other root moves.
+      Threads.abortedSearch = true;
+  }
 }
 
 
