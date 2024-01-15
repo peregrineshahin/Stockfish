@@ -991,8 +991,9 @@ moves_loop:  // When in check, search starts here
 
         Value delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta, thisThread->rootDelta);
+        Depth LMR = reduction(improving, depth, moveCount, delta, thisThread->rootDelta);
 
+        Depth r = 4 * LMR / 5;
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
         if (!rootNode && pos.non_pawn_material(us) && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
@@ -1149,6 +1150,8 @@ moves_loop:  // When in check, search starts here
 
         // Step 16. Make the move
         pos.do_move(move, st, givesCheck);
+
+        r = LMR;
 
         // Decrease reduction if position is or has been on the PV (~4 Elo)
         if (ss->ttPv && !likelyFailLow)
