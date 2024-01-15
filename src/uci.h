@@ -19,69 +19,76 @@
 #ifndef UCI_H_INCLUDED
 #define UCI_H_INCLUDED
 
-#include <cstdint>
-#include <iostream>
+#include <cstddef>
+#include <iosfwd>
+#include <map>
 #include <string>
-#include <unordered_map>
 
-#include "evaluate.h"
-#include "misc.h"
-#include "position.h"
-#include "thread.h"
-#include "tt.h"
-#include "ucioption.h"
+#include "types.h"
 
 namespace Stockfish {
 
-namespace Eval::NNUE {
-enum NetSize : int;
-}
+class Position;
 
-namespace Search {
-class Worker;
-}
+namespace UCI {
 
-class Move;
-enum Square : int;
-using Value = int;
+// Normalizes the internal value as reported by evaluate or search
+// to the UCI centipawn result used in output. This value is derived from
+// the win_rate_model() such that Stockfish outputs an advantage of
+// "100 centipawns" for a position if the engine has a 50% probability to win
+// from this position in self-play at fishtest LTC time control.
+const int NormalizeToPawnValue = 328;
 
-class UCI {
+class Option;
+
+// Define a custom comparator, because the UCI options should be case-insensitive
+struct CaseInsensitiveLess {
+    bool operator()(const std::string&, const std::string&) const;
+};
+
+// The options container is defined as a std::map
+using OptionsMap = std::map<std::string, Option, CaseInsensitiveLess>;
+
+// The Option class implements each option as specified by the UCI protocol
+class Option {
+
+    using OnChange = void (*)(const Option&);
+
    public:
-    UCI(int argc, char** argv);
+    Option(OnChange = nullptr);
+    Option(bool v, OnChange = nullptr);
+    Option(const char* v, OnChange = nullptr);
+    Option(double v, int minv, int maxv, OnChange = nullptr);
+    Option(const char* v, const char* cur, OnChange = nullptr);
 
-    void loop();
-
-    static int         to_cp(Value v);
-    static std::string value(Value v);
-    static std::string square(Square s);
-    static std::string move(Move m, bool chess960);
-    static std::string pv(const Search::Worker& workerThread,
-                          TimePoint             elapsed,
-                          uint64_t              nodesSearched,
-                          uint64_t              tb_hits,
-                          int                   hashfull,
-                          bool                  rootInTB);
-    static std::string wdl(Value v, int ply);
-    static Move        to_move(const Position& pos, std::string& str);
-
-    const std::string& workingDirectory() const { return cli.workingDirectory; }
-
-    OptionsMap options;
-
-    std::unordered_map<Eval::NNUE::NetSize, Eval::EvalFile> evalFiles;
+    Option& operator=(const std::string&);
+    void    operator<<(const Option&);
+    operator int() const;
+    operator std::string() const;
+    bool operator==(const char*) const;
 
    private:
-    TranspositionTable tt;
-    ThreadPool         threads;
-    CommandLine        cli;
+    friend std::ostream& operator<<(std::ostream&, const OptionsMap&);
 
-    void go(Position& pos, std::istringstream& is, StateListPtr& states);
-    void bench(Position& pos, std::istream& args, StateListPtr& states);
-    void position(Position& pos, std::istringstream& is, StateListPtr& states);
-    void trace_eval(Position& pos);
-    void search_clear();
-    void setoption(std::istringstream& is);
+    std::string defaultValue, currentValue, type;
+    int         min, max;
+    size_t      idx;
+    OnChange    on_change;
 };
+
+void        init(OptionsMap&);
+void        loop(int argc, char* argv[]);
+int         to_cp(Value v);
+std::string value(Value v);
+std::string square(Square s);
+std::string move(Move m, bool chess960);
+std::string pv(const Position& pos, Depth depth);
+std::string wdl(Value v, int ply);
+Move        to_move(const Position& pos, std::string& str);
+
+}  // namespace UCI
+
+extern UCI::OptionsMap Options;
 
 }  // namespace Stockfish
 

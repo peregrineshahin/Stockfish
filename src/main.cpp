@@ -16,13 +16,15 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cstddef>
 #include <iostream>
-#include <unordered_map>
 
 #include "bitboard.h"
 #include "evaluate.h"
 #include "misc.h"
 #include "position.h"
+#include "search.h"
+#include "thread.h"
 #include "tune.h"
 #include "types.h"
 #include "uci.h"
@@ -33,16 +35,17 @@ int main(int argc, char* argv[]) {
 
     std::cout << engine_info() << std::endl;
 
+    CommandLine::init(argc, argv);
+    UCI::init(Options);
+    Tune::init();
     Bitboards::init();
     Position::init();
+    Threads.set(size_t(Options["Threads"]));
+    Search::clear();  // After threads are up
+    Eval::NNUE::init();
 
-    UCI uci(argc, argv);
+    UCI::loop(argc, argv);
 
-    Tune::init(uci.options);
-
-    uci.evalFiles = Eval::NNUE::load_networks(uci.workingDirectory(), uci.options, uci.evalFiles);
-
-    uci.loop();
-
+    Threads.set(0);
     return 0;
 }

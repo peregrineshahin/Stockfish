@@ -721,13 +721,17 @@ void bindThisThread(size_t idx) {
     #define GETCWD getcwd
 #endif
 
-CommandLine::CommandLine(int _argc, char** _argv) :
-    argc(_argc),
-    argv(_argv) {
+namespace CommandLine {
+
+std::string argv0;             // path+name of the executable binary, as given by argv[0]
+std::string binaryDirectory;   // path of the executable directory
+std::string workingDirectory;  // path of the working directory
+
+void init([[maybe_unused]] int argc, char* argv[]) {
     std::string pathSeparator;
 
     // Extract the path+name of the executable binary
-    std::string argv0 = argv[0];
+    argv0 = argv[0];
 
 #ifdef _WIN32
     pathSeparator = "\\";
@@ -761,5 +765,8 @@ CommandLine::CommandLine(int _argc, char** _argv) :
     if (binaryDirectory.find("." + pathSeparator) == 0)
         binaryDirectory.replace(0, 1, workingDirectory);
 }
+
+
+}  // namespace CommandLine
 
 }  // namespace Stockfish

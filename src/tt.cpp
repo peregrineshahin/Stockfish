@@ -26,13 +26,16 @@
 #include <vector>
 
 #include "misc.h"
+#include "thread.h"
+#include "uci.h"
 
 namespace Stockfish {
 
+TranspositionTable TT;  // Our global transposition table
+
 // Populates the TTEntry with a new node's data, possibly
 // overwriting an old position. The update is not atomic and can be racy.
-void TTEntry::save(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
+void TTEntry::save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev) {
 
     // Preserve any existing move for the same position
     if (m || uint16_t(k) != key16)
@@ -46,7 +49,7 @@ void TTEntry::save(
 
         key16     = uint16_t(k);
         depth8    = uint8_t(d - DEPTH_OFFSET);
-        genBound8 = uint8_t(generation8 | uint8_t(pv) << 2 | b);
+        genBound8 = uint8_t(TT.generation8 | uint8_t(pv) << 2 | b);
         value16   = int16_t(v);
         eval16    = int16_t(ev);
     }
@@ -56,7 +59,10 @@ void TTEntry::save(
 // Sets the size of the transposition table,
 // measured in megabytes. Transposition table consists of a power of 2 number
 // of clusters and each cluster consists of ClusterSize number of TTEntry.
-void TranspositionTable::resize(size_t mbSize, int threadCount) {
+void TranspositionTable::resize(size_t mbSize) {
+
+    Threads.main()->wait_for_search_finished();
+
     aligned_large_pages_free(table);
 
     clusterCount = mbSize * 1024 * 1024 / sizeof(Cluster);
@@ -68,25 +74,28 @@ void TranspositionTable::resize(size_t mbSize, int threadCount) {
         exit(EXIT_FAILURE);
     }
 
-    clear(threadCount);
+    clear();
 }
 
 
 // Initializes the entire transposition table to zero,
 // in a multi-threaded way.
-void TranspositionTable::clear(size_t threadCount) {
+void TranspositionTable::clear() {
+
     std::vector<std::thread> threads;
 
-    for (size_t idx = 0; idx < size_t(threadCount); ++idx)
+    for (size_t idx = 0; idx < size_t(Options["Threads"]); ++idx)
     {
-        threads.emplace_back([this, idx, threadCount]() {
+        threads.emplace_back([this, idx]() {
             // Thread binding gives faster search on systems with a first-touch policy
-            if (threadCount > 8)
+            if (Options["Threads"] > 8)
                 WinProcGroup::bindThisThread(idx);
 
             // Each thread will zero its part of the hash table
-            const size_t stride = size_t(clusterCount / threadCount), start = size_t(stride * idx),
-                         len = idx != size_t(threadCount) - 1 ? stride : clusterCount - start;
+            const size_t stride = size_t(clusterCount / Options["Threads"]),
+                         start  = size_t(stride * idx),
+                         len =
+                           idx != size_t(Options["Threads"]) - 1 ? stride : clusterCount - start;
 
             std::memset(&table[start], 0, len * sizeof(Cluster));
         });
