@@ -1183,6 +1183,23 @@ moves_loop:  // When in check, search starts here
         if (move == (ss - 4)->currentMove && pos.has_repeated())
             r += 2;
 
+        if (priorCapture && !capture)
+        {
+            const auto attackedByPawn = pos.attacks_by<PAWN>(~us);
+            const auto attackedByMinor =
+              pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<BISHOP>(~us) | attackedByPawn;
+            const bool inBetweenMove =
+              (pos.pieces(us, QUEEN) & attackedByMinor && PieceValue[movedPiece] <= BishopValue
+               && PieceValue[priorCapture] < QueenValue)
+              || (pos.pieces(us, ROOK) & attackedByMinor && PieceValue[movedPiece] <= BishopValue
+                  && PieceValue[priorCapture] < RookValue)
+              || (pos.pieces(us, KNIGHT, BISHOP) & attackedByPawn
+                  && PieceValue[movedPiece] == PawnValue && PieceValue[priorCapture] < KnightValue);
+
+            if (inBetweenMove)
+                r--;
+        }
+
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
             r++;
