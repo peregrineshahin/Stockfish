@@ -1242,8 +1242,11 @@ moves_loop:  // When in check, search starts here
         else if (!PvNode || moveCount > 1)
         {
             // Increase reduction if ttMove is not present (~1 Elo)
-            if (!ttMove || cutNode)
+            if (!ttMove)
+            {
                 r += 2;
+                dbg_hit_on(PvNode);
+            }
 
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3), !cutNode);
