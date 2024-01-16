@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iosfwd>
+#include <vector>
 #include <string>
 
 #define stringify2(x) #x
