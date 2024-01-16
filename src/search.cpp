@@ -433,7 +433,7 @@ void Search::Worker::iterative_deepening() {
             && rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
         {
             // Bring the last best move to the front for best thread selection.
-            move_to_front(rootMoves, [&lastBestPV = std::as_const(lastBestPV)](const auto& rm) {
+            Utility::move_to_front(rootMoves, [&lastBestPV = std::as_const(lastBestPV)](const auto& rm) {
                 return rm == lastBestPV[0];
             });
             rootMoves[0].pv    = lastBestPV;
