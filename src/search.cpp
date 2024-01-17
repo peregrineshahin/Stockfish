@@ -1189,12 +1189,10 @@ moves_loop:  // When in check, search starts here
             const auto attackedByMinor =
               pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<BISHOP>(~us) | attackedByPawn;
             const bool inBetweenMove =
-              (pos.pieces(us, QUEEN) & attackedByMinor && PieceValue[movedPiece] <= BishopValue
-               && PieceValue[priorCapture] < QueenValue)
-              || (pos.pieces(us, ROOK) & attackedByMinor && PieceValue[movedPiece] <= BishopValue
-                  && PieceValue[priorCapture] < RookValue)
+              (pos.pieces(us, QUEEN) & attackedByMinor && PieceValue[priorCapture] < QueenValue)
+              || (pos.pieces(us, ROOK) & attackedByMinor && PieceValue[priorCapture] < RookValue)
               || (pos.pieces(us, KNIGHT, BISHOP) & attackedByPawn
-                  && PieceValue[movedPiece] == PawnValue && PieceValue[priorCapture] < KnightValue);
+                  && PieceValue[priorCapture] < KnightValue);
 
             if (inBetweenMove)
                 r += 2;
