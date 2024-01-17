@@ -553,9 +553,9 @@ Value Search::Worker::search(
     Move     ttMove, move, excludedMove, bestMove;
     Depth    extension, newDepth;
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
-    bool     givesCheck, improving, priorCapture, singularQuietLMR;
+    bool     givesCheck, improving, singularQuietLMR;
     bool     capture, moveCountPruning, ttCapture;
-    Piece    movedPiece;
+    Piece    movedPiece, priorCapture;
     int      moveCount, captureCount, quietCount;
 
     // Step 1. Initialize node
@@ -1181,6 +1181,9 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction on repetition (~1 Elo)
         if (move == (ss - 4)->currentMove && pos.has_repeated())
+            r += 2;
+
+        if (type_of(priorCapture) == QUEEN && !capture && !givesCheck)
             r += 2;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
