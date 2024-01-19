@@ -1094,7 +1094,15 @@ moves_loop:  // When in check, search starts here
                 // we assume this expected cut-node is not singular (multiple moves fail high),
                 // and we can prune the whole subtree by returning a softbound.
                 else if (singularBeta >= beta)
-                    return singularBeta;
+                {
+                    if (!PvNode)
+                        return singularBeta;
+                    else
+                    {
+                        value = singularBeta;
+                        goto update_search;
+                    }
+                }
 
                 // Negative extensions
                 // If other moves failed high over (ttValue - margin) without the ttMove on a reduced search,
@@ -1258,6 +1266,7 @@ moves_loop:  // When in check, search starts here
 
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
 
+update_search:
         // Step 20. Check for a new best move
         // Finished searching the move. If a stop occurred, the return value of
         // the search cannot be trusted, and we return immediately without
