@@ -1332,7 +1332,10 @@ moves_loop:  // When in check, search starts here
                 {
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
                     if (depth > 2 && depth < 12 && beta < 13782 && value > -11541)
+                    {
+                        dbg_hit_on(value > beta - 200 && value > 88 && depth > 3);
                         depth -= 2;
+                    }
 
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta
