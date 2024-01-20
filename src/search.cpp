@@ -296,7 +296,8 @@ void Search::Worker::iterative_deepening() {
 
     multiPV = std::min(multiPV, rootMoves.size());
 
-    int searchAgainCounter = 0;
+    bool firstIteration     = true;
+    int  searchAgainCounter = 0;
 
     // Iterative deepening loop until requested to stop or the target depth is reached
     while (++rootDepth < MAX_PLY && !threads.stop
@@ -349,9 +350,12 @@ void Search::Worker::iterative_deepening() {
             {
                 // Adjust the effective depth searched, but ensure at least one effective increment
                 // for every four searchAgain steps (see issue #2717).
-                Depth adjustedDepth =
-                  std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
+                Depth adjustedDepth = std::max(
+                  2 - firstIteration, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
                 bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+
+                if (firstIteration)
+                    firstIteration = false;
 
                 // Bring the best move to the front. It is critical that sorting
                 // is done with a stable algorithm because all the values but the
