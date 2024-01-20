@@ -1418,7 +1418,8 @@ template<NodeType nodeType>
 Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
 
     static_assert(nodeType != Root);
-    constexpr bool PvNode = nodeType == PV;
+    constexpr bool PvNode    = nodeType == PV;
+    Value          bestValue = -VALUE_INFINITE;
 
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
@@ -1428,7 +1429,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // if the opponent had an alternative move earlier to this position.
     if (alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(this->nodes);
+        bestValue = alpha = value_draw(this->nodes);
         if (alpha >= beta)
             return alpha;
     }
@@ -1441,7 +1442,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     Key      posKey;
     Move     ttMove, move, bestMove;
     Depth    ttDepth;
-    Value    bestValue, value, ttValue, futilityValue, futilityBase;
+    Value    value, ttValue, futilityValue, futilityBase;
     bool     pvHit, givesCheck, capture;
     int      moveCount;
     Color    us = pos.side_to_move();
@@ -1489,31 +1490,37 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     // Step 4. Static evaluation of the position
     if (ss->inCheck)
-        bestValue = futilityBase = -VALUE_INFINITE;
+        futilityBase = -VALUE_INFINITE;
     else
     {
         if (ss->ttHit)
         {
+            Value oldBestValue = bestValue;
+
             // Never assume anything about values stored in TT
-            if ((unadjustedStaticEval = ss->staticEval = bestValue = tte->eval()) == VALUE_NONE)
-                unadjustedStaticEval = ss->staticEval = bestValue =
-                  evaluate(pos, thisThread->optimism[us]);
-            ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+            if ((unadjustedStaticEval = ss->staticEval = tte->eval()) == VALUE_NONE)
+                unadjustedStaticEval = ss->staticEval = evaluate(pos, thisThread->optimism[us]);
+            ss->staticEval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+
+            if (ss->staticEval > oldBestValue)
+                bestValue = ss->staticEval;
 
             // ttValue can be used as a better position evaluation (~13 Elo)
             if (ttValue != VALUE_NONE
-                && (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER)))
+                && (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER))
+                && ttValue > oldBestValue)
                 bestValue = ttValue;
         }
         else
         {
             // In case of null move search, use previous static eval with a different sign
-            unadjustedStaticEval = ss->staticEval = bestValue =
-              (ss - 1)->currentMove != Move::null() ? evaluate(pos, thisThread->optimism[us])
+            unadjustedStaticEval = ss->staticEval = (ss - 1)->currentMove != Move::null()
+                                                    ? evaluate(pos, thisThread->optimism[us])
                                                     : -(ss - 1)->staticEval;
-            ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+            ss->staticEval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+
+            if (ss->staticEval > bestValue)
+                bestValue = ss->staticEval;
         }
 
         // Stand pat. Return immediately if static value is at least beta
