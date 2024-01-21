@@ -552,6 +552,7 @@ Value Search::Worker::search(
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
+    assert(!PvNode || ss->pv[0] == Move::none());
     assert(0 < depth && depth < MAX_PLY);
     assert(!(PvNode && cutNode));
 
@@ -1422,6 +1423,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
+    assert(!PvNode || ss->pv[0] == Move::none());
     assert(depth <= 0);
 
     // Check if we have an upcoming move that draws by repetition, or
@@ -1447,12 +1449,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     Color    us = pos.side_to_move();
 
     // Step 1. Initialize node
-    if (PvNode)
-    {
-        (ss + 1)->pv = pv;
-        ss->pv[0]    = Move::none();
-    }
-
     Worker* thisThread = this;
     bestMove           = Move::none();
     ss->inCheck        = pos.checkers();
@@ -1627,6 +1623,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         // Step 7. Make and search the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
+        if (PvNode)
+        {
+            (ss + 1)->pv    = pv;
+            (ss + 1)->pv[0] = Move::none();
+        }
         value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
         pos.undo_move(move);
 
