@@ -734,12 +734,7 @@ Value Search::Worker::search(
         goto moves_loop;
     }
     else if (excludedMove)
-    {
-        // Providing the hint that this node's accumulator will be used often
-        // brings significant Elo gain (~13 Elo).
-        Eval::NNUE::hint_common_parent_position(pos);
         unadjustedStaticEval = eval = ss->staticEval;
-    }
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
@@ -987,6 +982,8 @@ moves_loop:  // When in check, search starts here
 
         Depth r = reduction(improving, depth, moveCount, delta);
 
+        bool willSearchSingularTtMove = false;
+
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
         if (!rootNode && pos.non_pawn_material(us) && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
@@ -1086,6 +1083,7 @@ moves_loop:  // When in check, search starts here
                         extension = 2;
                         depth += depth < 15;
                     }
+                    willSearchSingularTtMove = true;
                 }
 
                 // Multi-cut pruning
@@ -1147,6 +1145,11 @@ moves_loop:  // When in check, search starts here
         // Step 16. Make the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
+
+        // Providing the hint that this node's accumulator will be used often
+        // brings significant Elo gain.
+        if (willSearchSingularTtMove)
+            Eval::NNUE::hint_common_parent_position(pos);
 
         // Decrease reduction if position is or has been on the PV (~7 Elo)
         if (ss->ttPv)
