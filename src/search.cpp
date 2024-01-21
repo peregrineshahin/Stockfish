@@ -734,12 +734,7 @@ Value Search::Worker::search(
         goto moves_loop;
     }
     else if (excludedMove)
-    {
-        // Providing the hint that this node's accumulator will be used often
-        // brings significant Elo gain (~13 Elo).
-        Eval::NNUE::hint_common_parent_position(pos);
         unadjustedStaticEval = eval = ss->staticEval;
-    }
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
@@ -1086,6 +1081,9 @@ moves_loop:  // When in check, search starts here
                         extension = 2;
                         depth += depth < 15;
                     }
+                    // Providing the hint that this node's accumulator will be used often
+                    // brings significant Elo gain.
+                    Eval::NNUE::hint_common_parent_position(pos);
                 }
 
                 // Multi-cut pruning
