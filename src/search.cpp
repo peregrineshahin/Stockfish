@@ -566,7 +566,7 @@ Value Search::Worker::search(
     Depth    extension, newDepth;
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool     givesCheck, improving, priorCapture, singularQuietLMR;
-    bool     capture, moveCountPruning, ttCapture;
+    bool     capture, moveCountPruning, ttCapture, failedProbCut;
     Piece    movedPiece;
     int      moveCount, captureCount, quietCount;
 
@@ -578,6 +578,7 @@ Value Search::Worker::search(
     moveCount = captureCount = quietCount = ss->moveCount = 0;
     bestValue                                             = -VALUE_INFINITE;
     maxValue                                              = VALUE_INFINITE;
+    failedProbCut                                         = false;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -916,7 +917,7 @@ Value Search::Worker::search(
                                                                      : value;
                 }
             }
-
+        failedProbCut = true;
         Eval::NNUE::hint_common_parent_position(pos);
     }
 
@@ -1164,6 +1165,9 @@ moves_loop:  // When in check, search starts here
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
             r++;
+
+        if (failedProbCut && !capture)
+            r--;
 
         // Decrease reduction for PvNodes (~3 Elo)
         if (PvNode && tte->bound() != BOUND_UPPER)
