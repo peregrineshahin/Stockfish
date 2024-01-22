@@ -203,10 +203,9 @@ class Worker {
     template<NodeType nodeType>
     Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth = 0);
 
-    Depth reduction(bool i, Depth d, int mn, int delta) {
+    Depth reduction(bool i, Depth d, int mn) {
         int reductionScale = reductions[d] * reductions[mn];
-        return (reductionScale + 1177 - int(delta) * 776 / int(rootDelta)) / 1024
-             + (!i && reductionScale > 842);
+        return (reductionScale + 1177) / 1024 + (!i && reductionScale > 842);
     }
 
     // Get a pointer to the search manager, only allowed to be called by the
