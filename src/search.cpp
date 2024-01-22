@@ -1199,7 +1199,8 @@ moves_loop:  // When in check, search starts here
         // been searched. In general, we would like to reduce them, but there are many
         // cases where we extend a son if it has good chances to be "interesting".
         if (depth >= 2 && moveCount > 1 + rootNode
-            && (!ss->ttPv || !capture || (cutNode && (ss - 1)->moveCount > 1)))
+            && (!ss->ttPv || !capture || (cutNode && (ss - 1)->moveCount > 1))
+            && pos.non_pawn_material(~us))
         {
             // In general we want to cap the LMR depth search at newDepth, but when
             // reduction is negative, we allow this move a limited search extension
