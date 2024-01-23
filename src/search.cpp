@@ -897,13 +897,21 @@ Value Search::Worker::search(
                 thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
                 pos.do_move(move, st);
 
-                // Perform a preliminary qsearch to verify that the move holds
-                value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
-
-                // If the qsearch held, perform the regular search
-                if (value >= probCutBeta)
+                if (move == ttMove && tte->bound() & BOUND_LOWER)
+                {
                     value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4,
                                            !cutNode);
+                }
+                else
+                {
+                    // Perform a preliminary qsearch to verify that the move holds
+                    value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+
+                    // If the qsearch held, perform the regular search
+                    if (value >= probCutBeta)
+                        value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1,
+                                               depth - 4, !cutNode);
+                }
 
                 pos.undo_move(move);
 
