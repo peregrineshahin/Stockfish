@@ -793,8 +793,6 @@ Value Search::Worker::search(
     if (eval < alpha - 435 - (327 - 167 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha, alpha+1);
-        if (value < alpha)
-            return value;
     }
 
     // Step 8. Futility pruning: child node (~40 Elo)
