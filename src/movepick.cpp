@@ -30,35 +30,6 @@ namespace Stockfish {
 
 namespace {
 
-enum Stages {
-    // generate main search moves
-    MAIN_TT,
-    CAPTURE_INIT,
-    GOOD_CAPTURE,
-    REFUTATION,
-    QUIET_INIT,
-    GOOD_QUIET,
-    BAD_CAPTURE,
-    BAD_QUIET,
-
-    // generate evasion moves
-    EVASION_TT,
-    EVASION_INIT,
-    EVASION,
-
-    // generate probcut moves
-    PROBCUT_TT,
-    PROBCUT_INIT,
-    PROBCUT,
-
-    // generate qsearch moves
-    QSEARCH_TT,
-    QCAPTURE_INIT,
-    QCAPTURE,
-    QCHECK_INIT,
-    QCHECK
-};
-
 // Sort moves in descending order up to and including
 // a given limit. The order of moves smaller than the limit is left unspecified.
 void partial_insertion_sort(ExtMove* begin, ExtMove* end, int limit) {
