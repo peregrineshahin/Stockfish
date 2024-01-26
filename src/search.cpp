@@ -790,7 +790,8 @@ Value Search::Worker::search(
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
     // Adjust razor margin according to cutoffCnt. (~1 Elo)
-    if (eval < alpha - 435 - (327 - 167 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
+    if (eval < alpha - 435 - (327 - 167 * ((ss + 1)->cutoffCnt > 3)) * depth * depth
+        && !pos.has_pawn_on_7th(us))
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)

@@ -158,6 +158,7 @@ class Position {
     bool  is_draw(int ply) const;
     bool  has_game_cycle(int ply) const;
     bool  has_repeated() const;
+    bool  has_pawn_on_7th(Color c) const;
     int   rule50_count() const;
     Value non_pawn_material(Color c) const;
     Value non_pawn_material() const;
@@ -303,6 +304,10 @@ inline Value Position::non_pawn_material(Color c) const { return st->nonPawnMate
 
 inline Value Position::non_pawn_material() const {
     return non_pawn_material(WHITE) + non_pawn_material(BLACK);
+}
+
+inline bool Position::has_pawn_on_7th(Color c) const {
+    return pieces(PAWN, c) & relative_rank(c, RANK_7);
 }
 
 inline int Position::game_ply() const { return gamePly; }
