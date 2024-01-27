@@ -193,11 +193,16 @@ void Search::Worker::start_searching() {
 
     // Send again PV info if we have a new best thread
     if (bestThread != this)
-        sync_cout << UCI::pv(*bestThread, main_manager()->tm.elapsed(threads.nodes_searched()),
-                             threads.nodes_searched(), threads.tb_hits(), tt.hashfull(),
+    {
+        const auto nodesSearched = threads.nodes_searched();
+        const auto timeElapsed   = mainThread->tm.elapsed(nodesSearched);
+        const auto tbHits        = threads.tb_hits();
+        const auto hashfull      = tt.hashfull();
+
+        sync_cout << UCI::pv(*bestThread, timeElapsed, nodesSearched, tbHits, hashfull,
                              tbConfig.rootInTB)
                   << sync_endl;
-
+    }
     sync_cout << "bestmove " << UCI::move(bestThread->rootMoves[0].pv[0], rootPos.is_chess960());
 
     if (bestThread->rootMoves[0].pv.size() > 1
@@ -334,13 +339,19 @@ void Search::Worker::iterative_deepening() {
 
                 // When failing high/low give some update (without cluttering
                 // the UI) before a re-search.
-                if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
-                    && mainThread->tm.elapsed(threads.nodes_searched()) > 3000)
-                    sync_cout << UCI::pv(*this, mainThread->tm.elapsed(threads.nodes_searched()),
-                                         threads.nodes_searched(), threads.tb_hits(), tt.hashfull(),
-                                         tbConfig.rootInTB)
-                              << sync_endl;
-
+                if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta))
+                {
+                    const auto nodesSearched = threads.nodes_searched();
+                    const auto timeElapsed   = mainThread->tm.elapsed(nodesSearched);
+                    if (timeElapsed > 3000)
+                    {
+                        const auto tbHits   = threads.tb_hits();
+                        const auto hashfull = tt.hashfull();
+                        sync_cout << UCI::pv(*this, timeElapsed, nodesSearched, tbHits, hashfull,
+                                             tbConfig.rootInTB)
+                                  << sync_endl;
+                    }
+                }
                 // In case of failing low/high increase aspiration window and
                 // re-search, otherwise exit the loop.
                 if (bestValue <= alpha)
@@ -376,10 +387,16 @@ void Search::Worker::iterative_deepening() {
                 // had time to fully search other root-moves. Thus we suppress this output and
                 // below pick a proven score/PV for this thread (from the previous iteration).
                 && !(threads.abortedSearch && rootMoves[0].uciScore <= VALUE_TB_LOSS_IN_MAX_PLY))
-                sync_cout << UCI::pv(*this, mainThread->tm.elapsed(threads.nodes_searched()),
-                                     threads.nodes_searched(), threads.tb_hits(), tt.hashfull(),
+            {
+                const auto nodesSearched = threads.nodes_searched();
+                const auto timeElapsed   = mainThread->tm.elapsed(nodesSearched);
+                const auto tbHits        = threads.tb_hits();
+                const auto hashfull      = tt.hashfull();
+
+                sync_cout << UCI::pv(*this, timeElapsed, nodesSearched, tbHits, hashfull,
                                      tbConfig.rootInTB)
                           << sync_endl;
+            }
         }
 
         if (!threads.stop)
