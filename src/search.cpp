@@ -1122,7 +1122,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
-            r += 2 - (tte->depth() >= depth && ss->ttPv);
+            r += 2 - (tte->depth() >= depth && ss->ttPv) + (ss - 1)->isLmr;
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
@@ -1171,7 +1171,9 @@ moves_loop:  // When in check, search starts here
             // std::clamp has been replaced by a more robust implementation.
             Depth d = std::max(1, std::min(newDepth - r, newDepth + 1));
 
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            ss->isLmr = true;
+            value     = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            ss->isLmr = false;
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)

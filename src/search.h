@@ -65,6 +65,7 @@ struct Stack {
     bool            inCheck;
     bool            ttPv;
     bool            ttHit;
+    bool            isLmr;
     int             doubleExtensions;
     int             cutoffCnt;
 };
