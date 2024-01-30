@@ -936,7 +936,7 @@ moves_loop:  // When in check, search starts here
             && main_manager()->tm.elapsed(threads.nodes_searched()) > 3000)
             sync_cout << "info depth " << depth << " currmove "
                       << UCI::move(move, pos.is_chess960()) << " currmovenumber "
-                      << moveCount + thisThread->pvIdx << sync_endl;
+                      << moveCount + thisThread->pvIdx << " alpha" << alpha << " beta" << beta << sync_endl;
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
