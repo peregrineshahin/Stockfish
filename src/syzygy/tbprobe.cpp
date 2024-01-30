@@ -740,7 +740,7 @@ do_probe_table(const Position& pos, T* entry, WDLScore wdl, ProbeState* result) 
     // MapPawns[] value, that is the one most toward the edges and with lowest rank.
     if (entry->hasPawns)
     {
-
+        std::cerr << "there are pawns" << std::endl;
         // In all the 4 tables, pawns are at the beginning of the piece sequence and
         // their color is the reference one. So we just pick the first one.
         Piece pc = Piece(entry->get(0, 0)->pieces[0] ^ flipColor);
