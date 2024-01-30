@@ -528,7 +528,7 @@ Value Search::Worker::search(
     Key      posKey;
     Move     ttMove, move, excludedMove, bestMove;
     Depth    extension, newDepth;
-    Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
+    Value    bestValue, value, ttValue, ttValueSB, eval, maxValue, probCutBeta;
     bool     givesCheck, improving, priorCapture, singularQuietLMR;
     bool     capture, moveCountPruning, ttCapture;
     Piece    movedPiece;
@@ -586,7 +586,9 @@ Value Search::Worker::search(
     excludedMove = ss->excludedMove;
     posKey       = pos.key();
     tte          = tt.probe(posKey, ss->ttHit);
-    ttValue   = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
+    ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
+    ttValueSB = ttValue;
+
     ttMove    = rootNode  ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
               : ss->ttHit ? tte->move()
                           : Move::none();
@@ -596,6 +598,9 @@ Value Search::Worker::search(
     // to save indentation, we list the condition in all code between here and there.
     if (!excludedMove)
         ss->ttPv = PvNode || (ss->ttHit && tte->is_pv());
+
+    if (ttValue >= beta && std::abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY)
+        ttValue = (ttValue * 3 + beta) / 4;
 
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && !excludedMove && tte->depth() > depth
@@ -629,9 +634,7 @@ Value Search::Worker::search(
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
-            return ttValue >= beta && std::abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY
-                   ? (ttValue * 3 + beta) / 4
-                   : ttValue;
+            return ttValue;
     }
 
     // Step 5. Tablebases probe
@@ -1028,10 +1031,10 @@ moves_loop:  // When in check, search starts here
             // Recursive singular search is avoided.
             if (!rootNode && move == ttMove && !excludedMove
                 && depth >= 4 - (thisThread->completedDepth > 31) + ss->ttPv
-                && std::abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && (tte->bound() & BOUND_LOWER)
+                && std::abs(ttValueSB) < VALUE_TB_WIN_IN_MAX_PLY && (tte->bound() & BOUND_LOWER)
                 && tte->depth() >= depth - 3)
             {
-                Value singularBeta  = ttValue - (58 + 52 * (ss->ttPv && !PvNode)) * depth / 64;
+                Value singularBeta  = ttValueSB - (58 + 52 * (ss->ttPv && !PvNode)) * depth / 64;
                 Depth singularDepth = newDepth / 2;
 
                 ss->excludedMove = move;
