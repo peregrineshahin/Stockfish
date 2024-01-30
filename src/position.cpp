@@ -1001,6 +1001,8 @@ void Position::undo_null_move() {
     sideToMove = ~sideToMove;
 }
 
+// Computes the new hash key after flipping sides
+Key Position::key_after_null() const { return st->key ^ Zobrist::side; }
 
 // Computes the new hash key after the given move. Needed
 // for speculative prefetch. It doesn't recognize special moves like castling,
@@ -1011,7 +1013,7 @@ Key Position::key_after(Move m) const {
     Square to       = m.to_sq();
     Piece  pc       = piece_on(from);
     Piece  captured = piece_on(to);
-    Key    k        = st->key ^ Zobrist::side;
+    Key    k        = key_after_null();
 
     if (captured)
         k ^= Zobrist::psq[captured][to];

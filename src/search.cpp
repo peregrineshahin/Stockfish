@@ -777,6 +777,9 @@ Value Search::Worker::search(
         && !excludedMove && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
         && beta > VALUE_TB_LOSS_IN_MAX_PLY)
     {
+        // Prefetch the TT entry for the resulting position
+        prefetch(tt.first_entry(pos.key_after_null()));
+
         assert(eval - beta >= 0);
 
         // Null move dynamic reduction based on depth and eval
