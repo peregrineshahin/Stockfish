@@ -1416,6 +1416,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         ss->pv[0]    = Move::none();
     }
 
+    if (this->completedDepth > 19 && !ss->inCheck)
+        return evaluate(pos, this->optimism[us]);
+
     Worker* thisThread = this;
     bestMove           = Move::none();
     ss->inCheck        = pos.checkers();
