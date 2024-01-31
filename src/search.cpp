@@ -499,6 +499,9 @@ template<NodeType nodeType>
 Value Search::Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
+    if (this->completedDepth == 21)
+        dbg_hit_on(1, 0);  // Value Search::Worker::search
+
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
@@ -626,6 +629,9 @@ Value Search::Worker::search(
             }
         }
 
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 1);  // ttCutoffs
+
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
@@ -693,6 +699,8 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     if (ss->inCheck)
     {
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 2);  // evaluating in check
         // Skip early pruning when in check
         ss->staticEval = eval = VALUE_NONE;
         improving             = false;
@@ -700,6 +708,8 @@ Value Search::Worker::search(
     }
     else if (excludedMove)
     {
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 3);  // excludedMove
         // Providing the hint that this node's accumulator will be used often
         // brings significant Elo gain (~13 Elo).
         Eval::NNUE::hint_common_parent_position(pos);
@@ -707,6 +717,8 @@ Value Search::Worker::search(
     }
     else if (ss->ttHit)
     {
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 4);  // ttHits
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ss->staticEval = eval = tte->eval();
         if (eval == VALUE_NONE)
@@ -722,6 +734,8 @@ Value Search::Worker::search(
     }
     else
     {
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 5);  // Evaluating new positions
         unadjustedStaticEval = ss->staticEval = eval = evaluate(pos, thisThread->optimism[us]);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
@@ -756,6 +770,8 @@ Value Search::Worker::search(
     // Adjust razor margin according to cutoffCnt. (~1 Elo)
     if (eval < alpha - 435 - (327 - 167 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
     {
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 6);  // razoring
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
             return value;
@@ -769,7 +785,11 @@ Value Search::Worker::search(
              >= beta
         && eval >= beta && eval < 27734  // smaller than TB wins
         && (!ttMove || ttCapture))
+    {
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 7);  // futility pruning
         return beta > VALUE_TB_LOSS_IN_MAX_PLY ? (eval + beta) / 2 : eval;
+    }
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 17787
@@ -778,6 +798,9 @@ Value Search::Worker::search(
         && beta > VALUE_TB_LOSS_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
+
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 8);  // Null move search
 
         // Null move dynamic reduction based on depth and eval
         Depth R = std::min(int(eval - beta) / 144, 6) + depth / 3 + 4;
@@ -841,6 +864,9 @@ Value Search::Worker::search(
       // So effective depth is equal to depth - 3
       && !(tte->depth() >= depth - 3 && ttValue != VALUE_NONE && ttValue < probCutBeta))
     {
+        if (this->completedDepth == 21)
+            dbg_hit_on(1, 9);  // probcut
+
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttMove, probCutBeta - ss->staticEval, &thisThread->captureHistory);
@@ -932,11 +958,6 @@ moves_loop:  // When in check, search starts here
 
         ss->moveCount = ++moveCount;
 
-        if (rootNode && is_mainthread()
-            && main_manager()->tm.elapsed(threads.nodes_searched()) > 3000)
-            sync_cout << "info depth " << depth << " currmove "
-                      << UCI::move(move, pos.is_chess960()) << " currmovenumber "
-                      << moveCount + thisThread->pvIdx << sync_endl;
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
@@ -1171,6 +1192,9 @@ moves_loop:  // When in check, search starts here
             // std::clamp has been replaced by a more robust implementation.
             Depth d = std::max(1, std::min(newDepth - r, newDepth + 1));
 
+            if (this->completedDepth == 21)
+                dbg_hit_on(1, 10);  // /LMR
+
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
             // Do a full-depth search when reduced LMR search fails high
@@ -1182,6 +1206,9 @@ moves_loop:  // When in check, search starts here
                 const bool doShallowerSearch = value < bestValue + newDepth;             // (~2 Elo)
 
                 newDepth += doDeeperSearch - doShallowerSearch;
+
+                if (this->completedDepth == 21)
+                    dbg_hit_on(1, 11);  // /LMR
 
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
@@ -1202,6 +1229,9 @@ moves_loop:  // When in check, search starts here
             if (!ttMove)
                 r += 2;
 
+            if (this->completedDepth == 21)
+                dbg_hit_on(1, 12);  // FDS
+
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3), !cutNode);
         }
@@ -1210,6 +1240,9 @@ moves_loop:  // When in check, search starts here
         // otherwise let the parent node fail low with value <= alpha and try another move.
         if (PvNode && (moveCount == 1 || value > alpha))
         {
+            if (this->completedDepth == 21)
+                dbg_hit_on(1, 13);  // PVSEARCH
+
             (ss + 1)->pv    = pv;
             (ss + 1)->pv[0] = Move::none();
 
@@ -1379,6 +1412,9 @@ moves_loop:  // When in check, search starts here
 // (~155 Elo)
 template<NodeType nodeType>
 Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
+
+    if (this->completedDepth == 21)
+        dbg_hit_on(1, 14);  // qsearch
 
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
