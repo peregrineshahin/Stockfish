@@ -1521,8 +1521,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         givesCheck = pos.gives_check(move);
         capture    = pos.capture_stage(move);
 
-        moveCount++;
-
         // Step 6. Pruning
         if (bestValue > VALUE_TB_LOSS_IN_MAX_PLY && pos.non_pawn_material(us))
         {
@@ -1530,7 +1528,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             if (!givesCheck && move.to_sq() != prevSq && futilityBase > VALUE_TB_LOSS_IN_MAX_PLY
                 && move.type_of() != PROMOTION)
             {
-                if (moveCount > 2)
+                if (moveCount > 1)
                     continue;
 
                 futilityValue = futilityBase + PieceValue[pos.piece_on(move.to_sq())];
@@ -1575,6 +1573,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             if (!pos.see_ge(move, -76))
                 continue;
         }
+
+        moveCount++;
 
         // Speculative prefetch as early as possible
         prefetch(tt.first_entry(pos.key_after(move)));
