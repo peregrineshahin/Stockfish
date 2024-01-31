@@ -1488,6 +1488,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
             return bestValue;
         }
+        else if (PvNode && !ss->inCheck)
+            return bestValue;
 
         if (bestValue > alpha)
             alpha = bestValue;
