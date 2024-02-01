@@ -598,9 +598,11 @@ Value Search::Worker::search(
         ss->ttPv = PvNode || (ss->ttHit && tte->is_pv());
 
     // At non-PV nodes we check for an early TT cutoff
-    if (!PvNode && !excludedMove && tte->depth() > depth
-        && ttValue != VALUE_NONE  // Possible in case of TT access race or if !ttHit
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+    if (!PvNode && !excludedMove
+        && ((tte->depth() > depth
+             && ttValue != VALUE_NONE  // Possible in case of TT access race or if !ttHit
+             && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+            || posKey == thisThread->rootPosKey))
     {
         // If ttMove is quiet, update move sorting heuristics on TT hit (~2 Elo)
         if (ttMove)
@@ -1443,9 +1445,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     pvHit   = ss->ttHit && tte->is_pv();
 
     // At non-PV nodes we check for an early TT cutoff
-    if (!PvNode && tte->depth() >= ttDepth
-        && ttValue != VALUE_NONE  // Only in case of TT access race or if !ttHit
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+    if (!PvNode
+        && ((tte->depth() >= ttDepth
+             && ttValue != VALUE_NONE  // Only in case of TT access race or if !ttHit
+             && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+            || posKey == thisThread->rootPosKey))
         return ttValue;
 
     Value unadjustedStaticEval = VALUE_NONE;
