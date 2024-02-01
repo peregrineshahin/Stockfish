@@ -225,6 +225,7 @@ class Worker {
     Value optimism[COLOR_NB];
 
     Position  rootPos;
+    Key       rootPosKey;
     StateInfo rootState;
     RootMoves rootMoves;
     Depth     rootDepth, completedDepth;

@@ -691,7 +691,7 @@ Value Search::Worker::search(
     Value unadjustedStaticEval = VALUE_NONE;
 
     // Step 6. Static evaluation of the position
-    if (ss->inCheck)
+    if (ss->inCheck || (!rootNode && posKey == thisThread->rootPosKey))
     {
         // Skip early pruning when in check
         ss->staticEval = eval = VALUE_NONE;
@@ -1445,7 +1445,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && tte->depth() >= ttDepth
         && ttValue != VALUE_NONE  // Only in case of TT access race or if !ttHit
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER))
+        && posKey != thisThread->rootPosKey)
         return ttValue;
 
     Value unadjustedStaticEval = VALUE_NONE;
