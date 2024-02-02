@@ -106,6 +106,7 @@ struct Skill {
 
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
+bool  possibleFortress(Stack* ss);
 void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_stats(
@@ -777,6 +778,7 @@ Value Search::Worker::search(
         // Null move dynamic reduction based on depth and eval
         Depth R = std::min(int(eval - beta) / 154, 6) + depth / 3 + 4;
 
+        ss->capturing           = false;
         ss->currentMove         = Move::null();
         ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
 
@@ -812,7 +814,7 @@ Value Search::Worker::search(
     // or by 4 if the current position is present in the TT and
     // the stored depth is greater than or equal to the current depth.
     // Use qsearch if depth <= 0.
-    if (PvNode && !ttMove)
+    if (PvNode && (!ttMove || possibleFortress(us)))
         depth -= 2 + 2 * (ss->ttHit && tte->depth() >= depth);
 
     if (depth <= 0)
@@ -848,6 +850,7 @@ Value Search::Worker::search(
                 prefetch(tt.first_entry(pos.key_after(move)));
 
                 ss->currentMove = move;
+                ss->capturing   = true;
                 ss->continuationHistory =
                   &this
                      ->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
@@ -1089,6 +1092,7 @@ moves_loop:  // When in check, search starts here
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
+        ss->capturing   = bool(capture);
         ss->continuationHistory =
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
 
@@ -1561,6 +1565,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
         // Update the current move
         ss->currentMove = move;
+        ss->capturing   = bool(capture);
         ss->continuationHistory =
           &thisThread
              ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][move.to_sq()];
@@ -1624,6 +1629,22 @@ Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) {
 }
 
 namespace {
+
+
+// Detects a possible fortress by checking whether any player can keep repeating moves
+// this fixes a fortress search explosion in case staticEval of the fortress is way off
+// A truthy value allows us to decrease depth to reach 50mr faster.
+bool possibleFortress(Stack* ss) {
+    const bool fortressUs =
+      !(ss - 6)->capturing && !(ss - 4)->capturing && !(ss - 2)->capturing
+      && (ss - 4)->currentMove.is_ok()
+      && (ss - 6)->currentMove
+           == Move((ss - 4)->currentMove.to_sq(), (ss - 4)->currentMove.from_sq())
+      && (ss - 6)->currentMove == (ss - 2)->currentMove;
+
+    return fortressUs;
+}
+
 // Adjusts a mate or TB score from "plies to mate from the root"
 // to "plies to mate from the current position". Standard scores are unchanged.
 // The function is called before storing a value in the transposition table.
