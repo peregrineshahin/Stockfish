@@ -1186,6 +1186,7 @@ moves_loop:  // When in check, search starts here
 
                 if (newDepth > d)
                 {
+                    dbg_hit_on(possibleFortress(ss), 0);
                     if (possibleFortress(ss))
                     {
                         newDepth = 2 * newDepth / 3;
@@ -1210,6 +1211,7 @@ moves_loop:  // When in check, search starts here
             if (!ttMove)
                 r += 2;
 
+            dbg_hit_on(newDepth > 1 && possibleFortress(ss), 1);
             if (newDepth > 1 && possibleFortress(ss))
                 newDepth = 2 * newDepth / 3;
 
