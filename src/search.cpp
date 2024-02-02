@@ -105,6 +105,7 @@ struct Skill {
 
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
+bool  possibleFortress(Stack* ss);
 void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_stats(
@@ -1184,7 +1185,14 @@ moves_loop:  // When in check, search starts here
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
+                {
+                    if (possibleFortress(ss))
+                    {
+                        newDepth = 2 * newDepth / 3;
+                        assert(newDepth >= 1);
+                    }
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                }
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = value <= alpha ? -stat_malus(newDepth)
@@ -1202,8 +1210,12 @@ moves_loop:  // When in check, search starts here
             if (!ttMove)
                 r += 2;
 
+            if (newDepth > 1 && possibleFortress(ss))
+                newDepth = 2 * newDepth / 3;
+
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3), !cutNode);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
+                                   newDepth - (r > 3 && !possibleFortress(ss)), !cutNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
@@ -1641,6 +1653,27 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
 
 namespace {
+
+
+// Detects a possible fortress by checking whether any player can keep repeating moves
+// this fixes a fortress search explosion in case staticEval of the fortress is way off
+// A truthy value allows us to decrease depth to reach 50mr faster.
+bool possibleFortress(Stack* ss) {
+    const bool fortressUs =
+      (ss - 4)->currentMove.is_ok()
+      && (ss - 6)->currentMove
+           == Move((ss - 4)->currentMove.to_sq(), (ss - 4)->currentMove.from_sq())
+      && (ss - 6)->currentMove == (ss - 2)->currentMove;
+
+    const bool fortressThem =
+      (ss - 5)->currentMove.is_ok()
+      && (ss - 7)->currentMove
+           == Move((ss - 5)->currentMove.to_sq(), (ss - 5)->currentMove.from_sq())
+      && (ss - 7)->currentMove == (ss - 3)->currentMove;
+
+    return fortressUs || fortressThem;
+}
+
 // Adjusts a mate or TB score from "plies to mate from the root"
 // to "plies to mate from the current position". Standard scores are unchanged.
 // The function is called before storing a value in the transposition table.
