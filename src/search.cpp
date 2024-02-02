@@ -66,6 +66,14 @@ constexpr int futility_move_count(bool improving, Depth depth) {
     return improving ? (3 + depth * depth) : (3 + depth * depth) / 2;
 }
 
+bool keeps_repeating(Stack* ss) {
+    return (ss - 4)->currentMove.is_ok()
+        && (ss - 6)->currentMove
+             == Move((ss - 4)->currentMove.to_sq(), (ss - 4)->currentMove.from_sq())
+        && (ss - 6)->currentMove == (ss - 2)->currentMove
+        && (ss - 4)->currentMove == ss->currentMove;
+}
+
 // Add correctionHistory value to raw staticEval and guarantee evaluation does not hit the tablebase range
 Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     auto cv = w.correctionHistory[pos.side_to_move()][pawn_structure_index<Correction>(pos)];
@@ -563,7 +571,7 @@ Value Search::Worker::search(
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
             return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks, pos, thisThread->optimism[us])
+                   ? evaluate(networks, pos, thisThread->optimism[us], (ss - 1)->fortress)
                    : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
@@ -705,7 +713,8 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = tte->eval();
         if (unadjustedStaticEval == VALUE_NONE)
-            unadjustedStaticEval = evaluate(networks, pos, thisThread->optimism[us]);
+            unadjustedStaticEval =
+              evaluate(networks, pos, thisThread->optimism[us], (ss - 1)->fortress);
         else if (PvNode)
             Eval::NNUE::hint_common_parent_position(pos, networks);
 
@@ -717,7 +726,8 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(networks, pos, thisThread->optimism[us]);
+        unadjustedStaticEval =
+          evaluate(networks, pos, thisThread->optimism[us], (ss - 1)->fortress);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
         // Static evaluation is saved as it was before adjustment by correction history
@@ -847,6 +857,7 @@ Value Search::Worker::search(
                 prefetch(tt.first_entry(pos.key_after(move)));
 
                 ss->currentMove = move;
+                ss->fortress    = false;
                 ss->continuationHistory =
                   &this
                      ->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
@@ -940,6 +951,9 @@ moves_loop:  // When in check, search starts here
 
         // Calculate new depth for this move
         newDepth = depth - 1;
+
+        if (keeps_repeating(ss))
+            newDepth = std::max(2 * newDepth / 3, 1);
 
         int delta = beta - alpha;
 
@@ -1099,6 +1113,8 @@ moves_loop:  // When in check, search starts here
         // Step 16. Make the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
+
+        ss->fortress = pos.rule50_count() > 0 && ((ss - 1)->fortress || keeps_repeating(ss));
 
         // Decrease reduction if position is or has been on the PV (~7 Elo)
         if (ss->ttPv)
@@ -1271,6 +1287,7 @@ moves_loop:  // When in check, search starts here
                 }
                 else
                 {
+
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
                     if (depth > 2 && depth < 12 && beta < 13665 && value > -12276)
                         depth -= 2;
@@ -1411,7 +1428,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // Step 2. Check for an immediate draw or maximum ply reached
     if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
         return (ss->ply >= MAX_PLY && !ss->inCheck)
-               ? evaluate(networks, pos, thisThread->optimism[us])
+               ? evaluate(networks, pos, thisThread->optimism[us], (ss - 1)->fortress)
                : VALUE_DRAW;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
@@ -1443,7 +1460,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             // Never assume anything about values stored in TT
             unadjustedStaticEval = tte->eval();
             if (unadjustedStaticEval == VALUE_NONE)
-                unadjustedStaticEval = evaluate(networks, pos, thisThread->optimism[us]);
+                unadjustedStaticEval =
+                  evaluate(networks, pos, thisThread->optimism[us], (ss - 1)->fortress);
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
@@ -1455,10 +1473,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         else
         {
             // In case of null move search, use previous static eval with a different sign
-            unadjustedStaticEval = (ss - 1)->currentMove != Move::null()
-                                   ? evaluate(networks, pos, thisThread->optimism[us])
-                                   : -(ss - 1)->staticEval;
-            ss->staticEval       = bestValue =
+            unadjustedStaticEval =
+              (ss - 1)->currentMove != Move::null()
+                ? evaluate(networks, pos, thisThread->optimism[us], (ss - 1)->fortress)
+                : -(ss - 1)->staticEval;
+            ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
         }
 
@@ -1573,7 +1592,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         // Step 7. Make and search the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
-        value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
+        ss->fortress = pos.rule50_count() > 0 && ((ss - 1)->fortress || keeps_repeating(ss));
+        value        = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
         pos.undo_move(move);
 
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
