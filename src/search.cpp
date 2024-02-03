@@ -523,7 +523,7 @@ Value Search::Worker::search(
     Depth    extension, newDepth;
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool     givesCheck, improving, priorCapture;
-    bool     capture, moveCountPruning, ttCapture;
+    bool     capture, moveCountPruning, singularQuietFailed, ttCapture;
     Piece    movedPiece;
     int      moveCount, captureCount, quietCount;
 
@@ -900,7 +900,7 @@ moves_loop:  // When in check, search starts here
                   contHist, &thisThread->pawnHistory, countermove, ss->killers);
 
     value            = bestValue;
-    moveCountPruning = false;
+    moveCountPruning = singularQuietFailed = false;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1034,7 +1034,9 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    extension = 1;
+                    // temporarly set to true until we make sure it doesn't fail
+                    singularQuietFailed = !ttCapture;
+                    extension           = 1;
 
                     // Avoid search explosion by limiting the number of double extensions
                     if (!PvNode && ss->doubleExtensions <= 16)
@@ -1153,7 +1155,7 @@ moves_loop:  // When in check, search starts here
             // beyond the first move depth. This may lead to hidden double extensions.
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
-            Depth d = std::max(1, std::min(newDepth - r, newDepth + 1));
+            Depth d = std::max(1, std::min(newDepth - r, newDepth + !singularQuietFailed));
 
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
@@ -1264,6 +1266,9 @@ moves_loop:  // When in check, search starts here
 
             if (value > alpha)
             {
+                if (singularQuietFailed && move == ttMove)
+                    singularQuietFailed = false;
+
                 bestMove = move;
 
                 if (PvNode && !rootNode)  // Update pv even in fail-high case
