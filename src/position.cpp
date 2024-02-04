@@ -669,9 +669,18 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     // Copy some fields of the old state to our new StateInfo object except the
     // ones which are going to be recalculated from scratch anyway and then switch
     // our state pointer to point to the new (ready to be updated) state.
-    std::memcpy(&newSt, st, offsetof(StateInfo, key));
-    newSt.previous = st;
-    st             = &newSt;
+
+    // Copy the relevant fields of the old state to our new StateInfo object
+    newSt.materialKey        = st->materialKey;
+    newSt.pawnKey            = st->pawnKey;
+    newSt.nonPawnMaterial[0] = st->nonPawnMaterial[0];
+    newSt.nonPawnMaterial[1] = st->nonPawnMaterial[1];
+    newSt.castlingRights     = st->castlingRights;
+    newSt.rule50             = st->rule50;
+    newSt.pliesFromNull      = st->pliesFromNull;
+    newSt.epSquare           = st->epSquare;
+    newSt.previous           = st;
+    st                       = &newSt;
 
     // Increment ply counters. In particular, rule50 will be reset to zero later on
     // in case of a capture or a pawn move.
