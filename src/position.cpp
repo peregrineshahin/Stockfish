@@ -669,6 +669,11 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
     // Copy some fields of the old state to our new StateInfo object except the
     // ones which are going to be recalculated from scratch anyway and then switch
     // our state pointer to point to the new (ready to be updated) state.
+
+    std::cout << &newSt << std::endl;
+    std::cout << (reinterpret_cast<uintptr_t>(&newSt) % 64UL) << std::endl;
+    ASSERT_ALIGNED(&newSt, Eval::NNUE::CacheLineSize);
+    ASSERT_ALIGNED(st, Eval::NNUE::CacheLineSize);
     std::memcpy(&newSt, st, offsetof(StateInfo, key));
     newSt.previous = st;
     st             = &newSt;

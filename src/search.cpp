@@ -1102,6 +1102,9 @@ moves_loop:  // When in check, search starts here
 
         // Step 16. Make the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+                std::cout << &st << std::endl;
+        std::cout << (reinterpret_cast<uintptr_t>(&st) % 64UL) << std::endl;
+        ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
         pos.do_move(move, st, givesCheck);
 
         // Decrease reduction if position is or has been on the PV (~5 Elo)
