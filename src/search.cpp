@@ -226,7 +226,7 @@ void Search::Worker::iterative_deepening() {
 
     // Allocate stack with extra size to allow access from (ss - 7) to (ss + 2):
     // (ss - 7) is needed for update_continuation_histories(ss - 1) which accesses (ss - 6),
-    // (ss + 2) is needed for initialization of cutOffCnt and killers.
+    // (ss + 2) is needed for initialization of scoreImprovements and killers.
     Stack  stack[MAX_PLY + 10] = {};
     Stack* ss                  = stack + 7;
 
@@ -570,7 +570,7 @@ Value Search::Worker::search(
 
     (ss + 1)->excludedMove = bestMove = Move::none();
     (ss + 2)->killers[0] = (ss + 2)->killers[1] = Move::none();
-    (ss + 2)->cutoffCnt                         = 0;
+    (ss + 2)->scoreImprovements                 = 0;
     ss->multipleExtensions                      = (ss - 1)->multipleExtensions;
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     ss->statScore = 0;
@@ -746,8 +746,8 @@ Value Search::Worker::search(
     // Step 7. Razoring (~1 Elo)
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
-    // Adjust razor margin according to cutoffCnt. (~1 Elo)
-    if (eval < alpha - 450 - (332 - 160 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
+    // Adjust razor margin according to scoreImprovements. (~1 Elo)
+    if (eval < alpha - 450 - (332 - 160 * ((ss + 1)->scoreImprovements > 3)) * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
@@ -1121,7 +1121,7 @@ moves_loop:  // When in check, search starts here
             r += 2;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
-        if ((ss + 1)->cutoffCnt > 3)
+        if ((ss + 1)->scoreImprovements > 3)
             r++;
 
         // Set reduction to 0 for first picked move (ttMove) (~2 Elo)
@@ -1258,12 +1258,13 @@ moves_loop:  // When in check, search starts here
             {
                 bestMove = move;
 
+                ss->scoreImprovements += 1 + !ttMove;
+
                 if (PvNode && !rootNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
 
                 if (value >= beta)
                 {
-                    ss->cutoffCnt += 1 + !ttMove;
                     assert(value >= beta);  // Fail high
                     break;
                 }

@@ -68,7 +68,7 @@ struct Stack {
     bool            ttPv;
     bool            ttHit;
     int             multipleExtensions;
-    int             cutoffCnt;
+    int             scoreImprovements;
 };
 
 
