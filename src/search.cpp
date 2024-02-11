@@ -1172,7 +1172,7 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 18. Full-depth search when LMR is skipped
-        else if (!PvNode || moveCount > 1)
+        else if (!PvNode || moveCount > 1 || value > alpha)
         {
             // Increase reduction if ttMove is not present (~1 Elo)
             if (!ttMove)
