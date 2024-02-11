@@ -1137,16 +1137,16 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 14894;
 
+        // In general we want to cap the LMR depth search at newDepth, but when
+        // reduction is negative, we allow this move a limited search extension
+        // beyond the first move depth. This may lead to hidden multiple extensions.
+        // To prevent problems when the max value is less than the min value,
+        // std::clamp has been replaced by a more robust implementation.
+        Depth d = std::max(1, std::min(newDepth - r, newDepth + 1));
+
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1 + rootNode)
         {
-            // In general we want to cap the LMR depth search at newDepth, but when
-            // reduction is negative, we allow this move a limited search extension
-            // beyond the first move depth. This may lead to hidden multiple extensions.
-            // To prevent problems when the max value is less than the min value,
-            // std::clamp has been replaced by a more robust implementation.
-            Depth d = std::max(1, std::min(newDepth - r, newDepth + 1));
-
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
             // Do a full-depth search when reduced LMR search fails high
@@ -1178,8 +1178,13 @@ moves_loop:  // When in check, search starts here
             if (!ttMove)
                 r += 2;
 
-            // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3), !cutNode);
+            if (!PvNode && !ttMove)
+                value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
+                                       std::min(newDepth - 2, (newDepth + d) / 2), !cutNode);
+
+            if (PvNode || ttMove || (!ttMove && value > alpha))
+                value =
+                  -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3), !cutNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
