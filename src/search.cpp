@@ -1393,7 +1393,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     Move     ttMove, move, bestMove;
     Depth    ttDepth;
     Value    bestValue, value, ttValue, futilityValue, futilityBase;
-    bool     pvHit, givesCheck, capture;
+    bool     pvHit, givesCheck, capture, ttCapture;
     int      moveCount;
     Color    us = pos.side_to_move();
 
@@ -1424,11 +1424,14 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     ttDepth = ss->inCheck || depth >= DEPTH_QS_CHECKS ? DEPTH_QS_CHECKS : DEPTH_QS_NO_CHECKS;
 
     // Step 3. Transposition table lookup
-    posKey  = pos.key();
-    tte     = tt.probe(posKey, ss->ttHit);
-    ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
-    ttMove  = ss->ttHit ? tte->move() : Move::none();
-    pvHit   = ss->ttHit && tte->is_pv();
+    posKey     = pos.key();
+    tte        = tt.probe(posKey, ss->ttHit);
+    ttValue    = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
+    ttMove     = ss->ttHit ? tte->move() : Move::none();
+    ttMove     = ttMove && pos.pseudo_legal(ttMove) ? ttMove : Move::none();
+    ttCapture  = ttMove && pos.capture_stage(ttMove);
+    givesCheck = ttMove && pos.gives_check(ttMove);
+    pvHit      = ss->ttHit && tte->is_pv();
 
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && tte->depth() >= ttDepth
@@ -1490,8 +1493,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // queen promotions, and other checks (only if depth >= DEPTH_QS_CHECKS)
     // will be generated.
     Square     prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
-    MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory);
+    MovePicker mp(pos, ttCapture || ss->inCheck || givesCheck ? ttMove : Move::none(), depth,
+                  &thisThread->mainHistory, &thisThread->captureHistory, contHist,
+                  &thisThread->pawnHistory);
 
     int quietCheckEvasions = 0;
 
