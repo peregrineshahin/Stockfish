@@ -907,8 +907,9 @@ moves_loop:  // When in check, search starts here
     MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &thisThread->captureHistory,
                   contHist, &thisThread->pawnHistory, countermove, ss->killers);
 
-    value            = bestValue;
-    moveCountPruning = false;
+    value                  = bestValue;
+    moveCountPruning       = false;
+    bool negativeExtension = false;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1068,7 +1069,10 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttValue >= beta)
-                    extension = -2 - !PvNode;
+                {
+                    negativeExtension = true;
+                    extension         = -2 - !PvNode;
+                }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high over current beta (~1 Elo)
                 else if (cutNode)
@@ -1143,7 +1147,8 @@ moves_loop:  // When in check, search starts here
         r -= ss->statScore / 14189;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
-        if (depth >= 2 && moveCount > 1 + rootNode)
+        if (depth >= 2 && moveCount > 1 + rootNode
+            && (!negativeExtension || ttCapture || (ss + 1)->cutoffCnt > 3))
         {
             // In general we want to cap the LMR depth search at newDepth, but when
             // reduction is negative, we allow this move a limited search extension
