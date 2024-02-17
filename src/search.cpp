@@ -1172,6 +1172,9 @@ moves_loop:  // When in check, search starts here
                           : value >= beta  ? stat_bonus(newDepth)
                                            : 0;
 
+                if (capture)
+                    bonus /= 6;
+
                 update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
             }
         }
