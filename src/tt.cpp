@@ -32,14 +32,14 @@ namespace Stockfish {
 // Populates the TTEntry with a new node's data, possibly
 // overwriting an old position. The update is not atomic and can be racy.
 void TTEntry::save(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
+  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8, bool cut) {
 
     // Preserve any existing move for the same position
     if (m || uint16_t(k) != key16)
         move16 = m;
 
     // Overwrite less valuable entries (cheapest checks first)
-    if (b == BOUND_EXACT || uint16_t(k) != key16 || d - DEPTH_OFFSET + 2 * pv > depth8 - 4)
+    if (b == BOUND_EXACT || uint16_t(k) != key16 || d - DEPTH_OFFSET + 2 * pv + !cut > depth8 - 4)
     {
         assert(d > DEPTH_OFFSET);
         assert(d < 256 + DEPTH_OFFSET);
