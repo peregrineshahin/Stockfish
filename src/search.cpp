@@ -1164,8 +1164,8 @@ moves_loop:  // When in check, search starts here
                 int bonus = value <= alpha ? -stat_malus(newDepth)
                           : value >= beta  ? stat_bonus(newDepth)
                                            : 0;
-
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                update_continuation_histories(ss, movedPiece, move.to_sq(),
+                                              (1 + 2 * (cutNode && value <= alpha)) * bonus);
             }
         }
 
