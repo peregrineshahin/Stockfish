@@ -218,6 +218,10 @@ Value Eval::evaluate(const Position& pos, int optimism) {
     int shuffling = pos.rule50_count();
     v             = v * (200 - shuffling) / 214;
 
+    Color us = pos.side_to_move();
+    if (us == BLACK && pos.can_castle(BLACK_OOO) && !pos.can_castle(BLACK_OO))
+        v -= 16;
+
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 
