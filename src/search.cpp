@@ -1303,11 +1303,9 @@ moves_loop:  // When in check, search starts here
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY && std::abs(alpha) < VALUE_TB_WIN_IN_MAX_PLY)
         bestValue = (bestValue * (depth + 2) + beta) / (depth + 3);
 
-    if (!moveCount)
-        bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
 
     // If there is a move that produces search value greater than alpha we update the stats of searched moves
-    else if (bestMove)
+    if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, bestValue, beta, prevSq, quietsSearched,
                          quietCount, capturesSearched, captureCount, depth);
 
@@ -1321,6 +1319,9 @@ moves_loop:  // When in check, search starts here
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
           << stat_bonus(depth) * bonus / 2;
     }
+
+    if (!moveCount)
+        bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
 
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
