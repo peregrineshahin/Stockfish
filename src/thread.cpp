@@ -241,6 +241,11 @@ Thread* ThreadPool::get_best_thread() const {
         const auto bestThreadMoveVote = votes[bestThreadPV[0]];
         const auto newThreadMoveVote  = votes[newThreadPV[0]];
 
+        const bool bestThreadInExactBound = !(bestThread->worker->rootMoves[0].scoreUpperbound
+                                              || bestThread->worker->rootMoves[0].scoreLowerbound);
+        const bool newThreadInExactBound =
+          !(th->worker->rootMoves[0].scoreUpperbound || th->worker->rootMoves[0].scoreLowerbound);
+
         const bool bestThreadInProvenWin = bestThreadScore >= VALUE_TB_WIN_IN_MAX_PLY;
         const bool newThreadInProvenWin  = newThreadScore >= VALUE_TB_WIN_IN_MAX_PLY;
 
@@ -257,13 +262,17 @@ Thread* ThreadPool::get_best_thread() const {
         if (bestThreadInProvenWin)
         {
             // Make sure we pick the shortest mate / TB conversion
-            if (newThreadScore > bestThreadScore)
+            if (newThreadInProvenWin
+                && newThreadScore * newThreadInExactBound
+                     > bestThreadScore * bestThreadInExactBound)
                 bestThread = th;
         }
         else if (bestThreadInProvenLoss)
         {
             // Make sure we pick the shortest mated / TB conversion
-            if (newThreadInProvenLoss && newThreadScore < bestThreadScore)
+            if (newThreadInProvenLoss
+                && newThreadScore * newThreadInExactBound
+                     < bestThreadScore * bestThreadInExactBound)
                 bestThread = th;
         }
         else if (newThreadInProvenWin || newThreadInProvenLoss
