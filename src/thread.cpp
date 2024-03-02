@@ -220,11 +220,12 @@ Thread* ThreadPool::get_best_thread() const {
 
     // Find the minimum score of all threads
     for (Thread* th : threads)
-        minScore = std::min(minScore, th->worker->rootMoves[0].score);
+        minScore = std::min(minScore, th->worker->rootMoves[0].uciScore);
 
     // Vote according to score and depth, and select the best thread
     auto thread_voting_value = [minScore](Thread* th) {
-        return (th->worker->rootMoves[0].score - minScore + 14) * int(th->worker->completedDepth);
+        return (th->worker->rootMoves[0].uciScore - minScore + 14)
+             * int(th->worker->completedDepth);
     };
 
     for (Thread* th : threads)
@@ -232,8 +233,8 @@ Thread* ThreadPool::get_best_thread() const {
 
     for (Thread* th : threads)
     {
-        const auto bestThreadScore = bestThread->worker->rootMoves[0].score;
-        const auto newThreadScore  = th->worker->rootMoves[0].score;
+        const auto bestThreadScore = bestThread->worker->rootMoves[0].uciScore;
+        const auto newThreadScore  = th->worker->rootMoves[0].uciScore;
 
         const auto& bestThreadPV = bestThread->worker->rootMoves[0].pv;
         const auto& newThreadPV  = th->worker->rootMoves[0].pv;

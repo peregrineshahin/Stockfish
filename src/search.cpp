@@ -381,8 +381,8 @@ void Search::Worker::iterative_deepening() {
 
         // We make sure not to pick an unproven mated-in score,
         // in case this thread prematurely stopped search (aborted-search).
-        if (threads.abortedSearch && rootMoves[0].score != -VALUE_INFINITE
-            && rootMoves[0].score <= VALUE_TB_LOSS_IN_MAX_PLY)
+        if (threads.abortedSearch && rootMoves[0].uciScore != -VALUE_INFINITE
+            && rootMoves[0].uciScore <= VALUE_TB_LOSS_IN_MAX_PLY)
         {
             // Bring the last best move to the front for best thread selection.
             Utility::move_to_front(rootMoves, [&lastBestPV = std::as_const(lastBestPV)](
@@ -393,13 +393,16 @@ void Search::Worker::iterative_deepening() {
         else if (rootMoves[0].pv[0] != lastBestPV[0])
         {
             lastBestPV        = rootMoves[0].pv;
-            lastBestScore     = rootMoves[0].score;
+            lastBestScore     = rootMoves[0].uciScore;
             lastBestMoveDepth = rootDepth;
         }
 
-        // Have we found a "mate in x"?
-        if (limits.mate && bestValue >= VALUE_MATE_IN_MAX_PLY
-            && VALUE_MATE - bestValue <= 2 * limits.mate)
+        if (limits.mate
+            && ((rootMoves[0].uciScore >= VALUE_MATE_IN_MAX_PLY
+                 && VALUE_MATE - rootMoves[0].uciScore <= 2 * limits.mate)
+                || (rootMoves[0].uciScore != -VALUE_INFINITE
+                    && rootMoves[0].uciScore <= VALUE_TB_LOSS_IN_MAX_PLY
+                    && VALUE_MATE + rootMoves[0].uciScore <= 2 * limits.mate)))
             threads.stop = true;
 
         if (!mainThread)
