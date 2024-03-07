@@ -398,7 +398,7 @@ void Search::Worker::iterative_deepening() {
         }
 
         // Have we found a "mate in x"?
-        if (mainThread && limits.mate && rootMoves[0].score == rootMoves[0].uciScore
+        if (limits.mate && mainThread && rootMoves[0].score == rootMoves[0].uciScore
             && ((rootMoves[0].score >= VALUE_MATE_IN_MAX_PLY
                  && VALUE_MATE - rootMoves[0].score <= 2 * limits.mate)
                 || (rootMoves[0].score != -VALUE_INFINITE
