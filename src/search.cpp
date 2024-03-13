@@ -1453,7 +1453,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
             // ttValue can be used as a better position evaluation (~13 Elo)
             if (ttValue != VALUE_NONE
-                && (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER)))
+                && (tte->bound()
+                    & ((ttValue > bestValue || ttValue >= beta) ? BOUND_LOWER : BOUND_UPPER)))
                 bestValue = ttValue;
         }
         else
