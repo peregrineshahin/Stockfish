@@ -1114,7 +1114,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
-            r++;
+            r += 1 + 2 * (ttValue >= beta && moveCount > 3);
 
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
