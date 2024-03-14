@@ -903,8 +903,9 @@ moves_loop:  // When in check, search starts here
     MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &thisThread->captureHistory,
                   contHist, &thisThread->pawnHistory, countermove, ss->killers);
 
-    value            = bestValue;
-    moveCountPruning = false;
+    value                  = bestValue;
+    moveCountPruning       = false;
+    bool negativeExtension = false;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1067,7 +1068,10 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttValue >= beta)
-                    extension = -3;
+                {
+                    negativeExtension = true;
+                    extension         = -3;
+                }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high over current beta (~1 Elo)
                 else if (cutNode)
@@ -1115,6 +1119,8 @@ moves_loop:  // When in check, search starts here
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
             r++;
+        else if (negativeExtension)
+            r--;
 
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
