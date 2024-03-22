@@ -5,15 +5,16 @@ on:
       - "*"
     branches:
       - master
+      - dbgBinaries
       - tools
       - github_ci
   pull_request:
     branches:
       - master
+      - dbgBinaries
       - tools
 jobs:
   Prerelease:
-    if: github.repository == 'official-stockfish/Stockfish' && (github.ref == 'refs/heads/master' || (startsWith(github.ref_name, 'sf_') && github.ref_type == 'tag'))
     runs-on: ubuntu-latest
     steps:
       # returns null if no pre-release exists
@@ -63,7 +64,6 @@ jobs:
   Tests:
     uses: ./.github/workflows/tests.yml
   Binaries:
-    if: github.repository == 'official-stockfish/Stockfish'
     needs: [Matrix, Prerelease, Compilation]
     uses: ./.github/workflows/upload_binaries.yml
     with:
