@@ -109,21 +109,24 @@ struct Skill {
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_pv(Move* pv, Move move, const Move* childPv);
+void  update_killers(Stack* ss, Move move);
+void  update_countermoves_histories(const Position& pos,
+                                    Move            move,
+                                    Search::Worker& workerThread,
+                                    Move            counterMove);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
-void  update_quiet_stats(
-   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
-void update_all_stats(const Position& pos,
-                      Stack*          ss,
-                      Search::Worker& workerThread,
-                      Move            bestMove,
-                      Value           bestValue,
-                      Value           beta,
-                      Square          prevSq,
-                      Move*           quietsSearched,
-                      int             quietCount,
-                      Move*           capturesSearched,
-                      int             captureCount,
-                      Depth           depth);
+void  update_all_stats(const Position& pos,
+                       Stack*          ss,
+                       Search::Worker& workerThread,
+                       Move            bestMove,
+                       Value           bestValue,
+                       Value           beta,
+                       Square          prevSq,
+                       Move*           quietsSearched,
+                       int             quietCount,
+                       Move*           capturesSearched,
+                       int             captureCount,
+                       Depth           depth);
 
 }  // namespace
 
@@ -615,7 +618,13 @@ Value Search::Worker::search(
         {
             // Bonus for a quiet ttMove that fails high (~2 Elo)
             if (!ttCapture)
-                update_quiet_stats(pos, ss, *this, ttMove, stat_bonus(depth));
+            {
+                update_killers(ss, ttMove);
+                int bonus = stat_bonus(depth);
+                thisThread->mainHistory[us][ttMove.from_to()] << bonus;
+                update_continuation_histories(ss, pos.moved_piece(ttMove), ttMove.to_sq(), bonus);
+                update_countermoves_histories(pos, (ss - 1)->currentMove, *thisThread, ttMove);
+            }
 
             // Extra penalty for early quiet moves of
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
@@ -1711,9 +1720,15 @@ void update_all_stats(const Position& pos,
     {
         int bestMoveBonus = bestValue > beta + 173 ? quietMoveBonus      // larger bonus
                                                    : stat_bonus(depth);  // smaller bonus
+        update_killers(ss, bestMove);
+        update_countermoves_histories(pos, (ss - 1)->currentMove, workerThread, bestMove);
 
-        // Increase stats for the best move in case it was a quiet move
-        update_quiet_stats(pos, ss, workerThread, bestMove, bestMoveBonus);
+        if (quietCount > 1 || depth > 3)
+        {
+            workerThread.mainHistory[us][bestMove.from_to()] << bestMoveBonus;
+            update_continuation_histories(ss, pos.moved_piece(bestMove), bestMove.to_sq(),
+                                          bestMoveBonus);
+        }
 
         int pIndex = pawn_structure_index(pos);
         workerThread.pawnHistory[pIndex][moved_piece][bestMove.to_sq()] << quietMoveBonus;
@@ -1754,6 +1769,23 @@ void update_all_stats(const Position& pos,
     }
 }
 
+void update_killers(Stack* ss, Move move) {
+    // Update killers
+    if (ss->killers[0] != move)
+    {
+        ss->killers[1] = ss->killers[0];
+        ss->killers[0] = move;
+    }
+}
+
+void update_countermoves_histories(const Position& pos,
+                                   Move            move,
+                                   Search::Worker& workerThread,
+                                   Move            counterMove) {
+    // Update countermove history
+    if (move.is_ok())
+        workerThread.counterMoves[pos.piece_on(move.to_sq())][move.to_sq()] = counterMove;
+}
 
 // Updates histories of the move pairs formed
 // by moves at ply -1, -2, -3, -4, and -6 with current move.
@@ -1766,30 +1798,6 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
             break;
         if (((ss - i)->currentMove).is_ok())
             (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + 3 * (i == 3));
-    }
-}
-
-
-// Updates move sorting heuristics
-void update_quiet_stats(
-  const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
-
-    // Update killers
-    if (ss->killers[0] != move)
-    {
-        ss->killers[1] = ss->killers[0];
-        ss->killers[0] = move;
-    }
-
-    Color us = pos.side_to_move();
-    workerThread.mainHistory[us][move.from_to()] << bonus;
-    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
-
-    // Update countermove history
-    if (((ss - 1)->currentMove).is_ok())
-    {
-        Square prevSq                                           = ((ss - 1)->currentMove).to_sq();
-        workerThread.counterMoves[pos.piece_on(prevSq)][prevSq] = move;
     }
 }
 }
@@ -1824,7 +1832,6 @@ Move Skill::pick_best(const RootMoves& rootMoves, size_t multiPV) {
 
     return best;
 }
-
 
 // Used to print debug info and, more importantly,
 // to detect when we are out of available time and thus stop the search.
