@@ -625,7 +625,7 @@ Value Search::Worker::search(
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                              -stat_malus(depth + 1));
+                                              -stat_malus(depth + 3 - (ss - 1)->moveCount));
         }
 
         // Partial workaround for the graph history interaction problem
