@@ -18,6 +18,7 @@
 
 #include "tbprobe.h"
 
+#include <sys/stat.h>
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -31,7 +32,6 @@
 #include <mutex>
 #include <sstream>
 #include <string_view>
-#include <sys/stat.h>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -42,7 +42,7 @@
 #include "../position.h"
 #include "../search.h"
 #include "../types.h"
-#include "../ucioption.h"
+#include "../uci.h"
 
 #ifndef _WIN32
     #include <fcntl.h>
@@ -863,7 +863,7 @@ do_probe_table(const Position& pos, T* entry, WDLScore wdl, ProbeState* result) 
         int adjust2 = (squares[2] > squares[0]) + (squares[2] > squares[1]);
 
         // First piece is below a1-h8 diagonal. MapA1D1D4[] maps the b1-d1-d3
-        // triangle to 0...5. There are 63 squares for second piece and 62
+        // triangle to 0...5. There are 63 squares for second piece and and 62
         // (mapped to 0...61) for the third.
         if (off_A1H8(squares[0]))
             idx = (MapA1D1D4[squares[0]] * 63 + (squares[1] - adjust1)) * 62 + squares[2] - adjust2;
@@ -1574,7 +1574,7 @@ int Tablebases::probe_dtz(Position& pos, ProbeState* result) {
 // Use the DTZ tables to rank root moves.
 //
 // A return value false indicates that not all probes were successful.
-bool Tablebases::root_probe(Position& pos, Search::RootMoves& rootMoves, bool rule50) {
+bool Tablebases::root_probe(Position& pos, Search::RootMoves& rootMoves) {
 
     ProbeState result = OK;
     StateInfo  st;
@@ -1585,7 +1585,7 @@ bool Tablebases::root_probe(Position& pos, Search::RootMoves& rootMoves, bool ru
     // Check whether a position was repeated since the last zeroing move.
     bool rep = pos.has_repeated();
 
-    int dtz, bound = rule50 ? (MAX_DTZ - 100) : 1;
+    int dtz, bound = Options["Syzygy50MoveRule"] ? (MAX_DTZ - 100) : 1;
 
     // Probe and rank each move
     for (auto& m : rootMoves)
@@ -1647,7 +1647,7 @@ bool Tablebases::root_probe(Position& pos, Search::RootMoves& rootMoves, bool ru
 // This is a fallback for the case that some or all DTZ tables are missing.
 //
 // A return value false indicates that not all probes were successful.
-bool Tablebases::root_probe_wdl(Position& pos, Search::RootMoves& rootMoves, bool rule50) {
+bool Tablebases::root_probe_wdl(Position& pos, Search::RootMoves& rootMoves) {
 
     static const int WDL_to_rank[] = {-MAX_DTZ, -MAX_DTZ + 101, 0, MAX_DTZ - 101, MAX_DTZ};
 
@@ -1655,6 +1655,7 @@ bool Tablebases::root_probe_wdl(Position& pos, Search::RootMoves& rootMoves, boo
     StateInfo  st;
     WDLScore   wdl;
 
+    bool rule50 = Options["Syzygy50MoveRule"];
 
     // Probe and rank each move
     for (auto& m : rootMoves)
@@ -1681,60 +1682,4 @@ bool Tablebases::root_probe_wdl(Position& pos, Search::RootMoves& rootMoves, boo
     return true;
 }
 
-Config Tablebases::rank_root_moves(const OptionsMap&  options,
-                                   Position&          pos,
-                                   Search::RootMoves& rootMoves) {
-    Config config;
-
-    if (rootMoves.empty())
-        return config;
-
-    config.rootInTB    = false;
-    config.useRule50   = bool(options["Syzygy50MoveRule"]);
-    config.probeDepth  = int(options["SyzygyProbeDepth"]);
-    config.cardinality = int(options["SyzygyProbeLimit"]);
-
-    bool dtz_available = true;
-
-    // Tables with fewer pieces than SyzygyProbeLimit are searched with
-    // probeDepth == DEPTH_ZERO
-    if (config.cardinality > MaxCardinality)
-    {
-        config.cardinality = MaxCardinality;
-        config.probeDepth  = 0;
-    }
-
-    if (config.cardinality >= popcount(pos.pieces()) && !pos.can_castle(ANY_CASTLING))
-    {
-        // Rank moves using DTZ tables
-        config.rootInTB = root_probe(pos, rootMoves, options["Syzygy50MoveRule"]);
-
-        if (!config.rootInTB)
-        {
-            // DTZ tables are missing; try to rank moves using WDL tables
-            dtz_available   = false;
-            config.rootInTB = root_probe_wdl(pos, rootMoves, options["Syzygy50MoveRule"]);
-        }
-    }
-
-    if (config.rootInTB)
-    {
-        // Sort moves according to TB rank
-        std::stable_sort(
-          rootMoves.begin(), rootMoves.end(),
-          [](const Search::RootMove& a, const Search::RootMove& b) { return a.tbRank > b.tbRank; });
-
-        // Probe during search only if DTZ is not available and we are winning
-        if (dtz_available || rootMoves[0].tbScore <= VALUE_DRAW)
-            config.cardinality = 0;
-    }
-    else
-    {
-        // Clean up if root_probe() and root_probe_wdl() have failed
-        for (auto& m : rootMoves)
-            m.tbRank = 0;
-    }
-
-    return config;
-}
 }  // namespace Stockfish

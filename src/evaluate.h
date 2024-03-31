@@ -20,6 +20,7 @@
 #define EVALUATE_H_INCLUDED
 
 #include <string>
+#include <unordered_map>
 
 #include "types.h"
 
@@ -31,22 +32,34 @@ namespace Eval {
 
 constexpr inline int SmallNetThreshold = 1165, PsqtOnlyThreshold = 2500;
 
+std::string trace(Position& pos);
+
+int   simple_eval(const Position& pos, Color c);
+Value evaluate(const Position& pos);
+bool has_fianchettoed_bishops(const Position& pos, Color c);
+
 // The default net name MUST follow the format nn-[SHA256 first 12 digits].nnue
 // for the build process (profile-build and fishtest) to work. Do not change the
-// name of the macro or the location where this macro is defined, as it is used
-// in the Makefile/Fishtest.
+// name of the macro, as it is used in the Makefile.
 #define EvalFileDefaultNameBig "nn-1ceb1ade0001.nnue"
 #define EvalFileDefaultNameSmall "nn-baff1ede1f90.nnue"
 
 namespace NNUE {
-struct Networks;
-}
 
-std::string trace(Position& pos, const Eval::NNUE::Networks& networks);
+enum NetSize : int;
 
-int   simple_eval(const Position& pos, Color c);
-Value evaluate(const NNUE::Networks& networks, const Position& pos, int optimism);
+void init();
+void verify();
 
+}  // namespace NNUE
+
+struct EvalFile {
+    std::string option_name;
+    std::string default_name;
+    std::string selected_name;
+};
+
+extern std::unordered_map<NNUE::NetSize, EvalFile> EvalFiles;
 
 }  // namespace Eval
 
