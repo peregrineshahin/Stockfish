@@ -45,6 +45,8 @@
 #include "ucioption.h"
 
 namespace Stockfish {
+int xx1=1100, xx2=900, xx3=900;
+TUNE(SetRange(700, 1600), xx1, xx2, xx3);
 
 namespace TB = Tablebases;
 
@@ -1629,7 +1631,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
 Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) {
     int reductionScale = reductions[d] * reductions[mn];
-    return (reductionScale + 1107 - delta * 725 / rootDelta) / 1024 + (!i && reductionScale > 956);
+    return (reductionScale + xx1 - delta * xx2 / rootDelta) / 1024 + (!i && reductionScale > xx3);
 }
 
 namespace {
