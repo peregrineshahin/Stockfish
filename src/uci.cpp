@@ -103,6 +103,8 @@ UCI::UCI(int argc, char** argv) :
 
 void UCI::loop() {
 
+
+    // some random new commit
     Position     pos;
     std::string  token, cmd;
     StateListPtr states(new std::deque<StateInfo>(1));
