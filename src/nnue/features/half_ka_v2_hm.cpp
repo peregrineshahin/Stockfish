@@ -37,7 +37,7 @@ inline IndexType HalfKAv2_hm::make_index(Square s, Piece pc, Square ksq) {
 // Get a list of indices for active features
 template<Color Perspective>
 void HalfKAv2_hm::append_active_indices(const Position& pos, IndexList& active) {
-    Square   ksq = pos.square<KING>(Perspective);
+    Square   ksq = pos.king_square(Perspective);
     Bitboard bb  = pos.pieces();
     while (bb)
     {

@@ -152,15 +152,16 @@ class Position {
     Key pawn_key() const;
 
     // Other properties of the position
-    Color side_to_move() const;
-    int   game_ply() const;
-    bool  is_chess960() const;
-    bool  is_draw(int ply) const;
-    bool  has_game_cycle(int ply) const;
-    bool  has_repeated() const;
-    int   rule50_count() const;
-    Value non_pawn_material(Color c) const;
-    Value non_pawn_material() const;
+    Color  side_to_move() const;
+    Square king_square(Color c) const;
+    int    game_ply() const;
+    bool   is_chess960() const;
+    bool   is_draw(int ply) const;
+    bool   has_game_cycle(int ply) const;
+    bool   has_repeated() const;
+    int    rule50_count() const;
+    Value  non_pawn_material(Color c) const;
+    Value  non_pawn_material() const;
 
     // Position consistency check, for debugging
     bool pos_is_ok() const;
@@ -187,6 +188,7 @@ class Position {
 
     // Data members
     Piece      board[SQUARE_NB];
+    Square     kingsSquare[COLOR_NB];
     Bitboard   byTypeBB[PIECE_TYPE_NB];
     Bitboard   byColorBB[COLOR_NB];
     int        pieceCount[PIECE_NB];
@@ -202,6 +204,8 @@ class Position {
 std::ostream& operator<<(std::ostream& os, const Position& pos);
 
 inline Color Position::side_to_move() const { return sideToMove; }
+
+inline Square Position::king_square(Color c) const { return kingsSquare[c]; }
 
 inline Piece Position::piece_on(Square s) const {
     assert(is_ok(s));
@@ -326,8 +330,11 @@ inline Piece Position::captured_piece() const { return st->capturedPiece; }
 
 inline void Position::put_piece(Piece pc, Square s) {
 
-    board[s] = pc;
-    byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
+    board[s]     = pc;
+    PieceType pt = type_of(pc);
+    if (pt == KING)
+        kingsSquare[color_of(pc)] = s;
+    byTypeBB[ALL_PIECES] |= byTypeBB[pt] |= s;
     byColorBB[color_of(pc)] |= s;
     pieceCount[pc]++;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
@@ -346,11 +353,15 @@ inline void Position::remove_piece(Square s) {
 
 inline void Position::move_piece(Square from, Square to) {
 
-    Piece    pc     = board[from];
+    Piece     pc = board[from];
+    PieceType pt = type_of(pc);
+    Color     c  = color_of(pc);
+    if (pt == KING)
+        kingsSquare[c] = to;
     Bitboard fromTo = from | to;
     byTypeBB[ALL_PIECES] ^= fromTo;
-    byTypeBB[type_of(pc)] ^= fromTo;
-    byColorBB[color_of(pc)] ^= fromTo;
+    byTypeBB[pt] ^= fromTo;
+    byColorBB[c] ^= fromTo;
     board[from] = NO_PIECE;
     board[to]   = pc;
 }

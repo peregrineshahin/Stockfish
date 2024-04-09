@@ -80,7 +80,7 @@ ExtMove* generate_pawn_moves(const Position& pos, ExtMove* moveList, Bitboard ta
             // To make a quiet check, you either make a direct check by pushing a pawn
             // or push a blocker pawn that is not on the same file as the enemy king.
             // Discovered check promotion has been already generated amongst the captures.
-            Square   ksq              = pos.square<KING>(Them);
+            Square   ksq              = pos.king_square(Them);
             Bitboard dcCandidatePawns = pos.blockers_for_king(Them) & ~file_bb(ksq);
             b1 &= pawn_attacks_bb(Them, ksq) | shift<Up>(dcCandidatePawns);
             b2 &= pawn_attacks_bb(Them, ksq) | shift<Up + Up>(dcCandidatePawns);
@@ -188,7 +188,7 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
     static_assert(Type != LEGAL, "Unsupported type in generate_all()");
 
     constexpr bool Checks = Type == QUIET_CHECKS;  // Reduce template instantiations
-    const Square   ksq    = pos.square<KING>(Us);
+    const Square   ksq    = pos.king_square(Us);
     Bitboard       target;
 
     // Skip generating non-king moves when in double check
@@ -210,7 +210,7 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
     {
         Bitboard b = attacks_bb<KING>(ksq) & (Type == EVASIONS ? ~pos.pieces(Us) : target);
         if (Checks)
-            b &= ~attacks_bb<QUEEN>(pos.square<KING>(~Us));
+            b &= ~attacks_bb<QUEEN>(pos.king_square(~Us));
 
         while (b)
             *moveList++ = Move(ksq, pop_lsb(b));
@@ -262,7 +262,7 @@ ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
 
     Color    us     = pos.side_to_move();
     Bitboard pinned = pos.blockers_for_king(us) & pos.pieces(us);
-    Square   ksq    = pos.square<KING>(us);
+    Square   ksq    = pos.king_square(us);
     ExtMove* cur    = moveList;
 
     moveList =
