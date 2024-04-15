@@ -56,6 +56,49 @@ namespace {
 static constexpr double EvalLevel[10] = {1.043, 1.017, 0.952, 1.009, 0.971,
                                          1.002, 0.992, 0.947, 1.046, 1.001};
 
+struct CollisionEntry {
+    int                      posKey;
+    std::vector<std::string> fens;
+    std::vector<Move>        ttMoves;
+};
+
+std::vector<CollisionEntry> collisionArray;
+
+void updateCollisionArray(int posKey, std::string fen, Move ttMove) {
+    bool found = false;
+    for (auto& obj : collisionArray)
+    {
+        if (obj.posKey == posKey)
+        {
+            auto it =
+              std::find_if(obj.fens.begin(), obj.fens.end(), [fen](const std::string& storedFen) {
+                  // Find the position of '-' character in both storedFen and fen
+                  size_t storedDashPos = storedFen.find('-');
+                  size_t fenDashPos    = fen.find('-');
+
+                  // Compare the substrings before the '-' character
+                  return storedFen.substr(0, storedDashPos) == fen.substr(0, fenDashPos);
+              });
+
+            if (it == obj.fens.end())
+            {
+                obj.fens.push_back(fen);
+            }
+            obj.ttMoves.push_back(ttMove);
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+    {
+        CollisionEntry obj;
+        obj.posKey = posKey;
+        obj.fens.push_back(fen);
+        obj.ttMoves.push_back(ttMove);
+        collisionArray.push_back(obj);
+    }
+}
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 118 - 44 * noTtCutNode;
@@ -203,6 +246,28 @@ void Search::Worker::start_searching() {
     if (bestThread != this)
         sync_cout << main_manager()->pv(*bestThread, threads, tt, bestThread->completedDepth)
                   << sync_endl;
+
+    for (const auto& obj : collisionArray)
+    {
+        if (obj.fens.size() < 2)
+            continue;
+        std::cerr << "rootPos: "
+                  << UCI::move(bestThread->rootMoves[0].pv[0], rootPos.is_chess960());
+        std::cerr << "posKey: " << obj.posKey << std::endl;
+        std::cerr << "FENs:" << std::endl;
+        std::cerr << "Number of FENS: " << obj.fens.size() << std::endl;
+
+        for (const auto& fen : obj.fens)
+        {
+            std::cerr << " " << fen << std::endl;
+        }
+        std::cerr << "TT Moves:";
+        for (const auto& ttMove : obj.ttMoves)
+        {
+            std::cerr << " " << UCI::move(ttMove, false) << std::endl;
+        }
+        std::cerr << std::endl << std::endl;
+    }
 
     sync_cout << "bestmove " << UCI::move(bestThread->rootMoves[0].pv[0], rootPos.is_chess960());
 
@@ -603,6 +668,8 @@ Value Search::Worker::search(
               : ss->ttHit ? tte->move()
                           : Move::none();
     ttCapture = ttMove && pos.capture_stage(ttMove);
+
+    updateCollisionArray(posKey, pos.fen(), ttMove);
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -1431,6 +1498,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove  = ss->ttHit ? tte->move() : Move::none();
     pvHit   = ss->ttHit && tte->is_pv();
+
+    updateCollisionArray(posKey, pos.fen(), ttMove);
 
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && tte->depth() >= ttDepth

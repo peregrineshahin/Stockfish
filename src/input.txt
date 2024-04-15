@@ -1,0 +1,11 @@
+setoption name hash value 512
+position fen r1bq1rk1/pppn1pbp/3p1np1/4P3/1P6/P3PN2/1BPP2PP/RN1QKB1R b KQ - 0 8
+go nodes 109876
+position fen r4rk1/ppp2pbp/3q1np1/4pb2/1P6/P1N1P3/1BPPB1PP/R2Q1RK1 b - - 5 12
+go nodes 65986
+position fen r4rk1/ppp2pb1/3q1np1/4pb1p/1P6/P1NPP3/1BP1B1PP/R2Q1RK1 b - - 0 13
+go nodes 21611
+position fen r5k1/1p2qpb1/2p1bnp1/r3p2p/7Q/P1NPPB1P/1BP3P1/1R3R1K b - - 2 20
+go nodes 1
+
+ucinewgame
