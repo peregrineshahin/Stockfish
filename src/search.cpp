@@ -46,6 +46,11 @@
 
 namespace Stockfish {
 
+int globalSearch      = 0;
+int globalQsearch     = 0;
+int positionEverSaved = 0;
+int everEvalIsSkipped = 0;
+
 namespace TB = Tablebases;
 
 using Eval::evaluate;
@@ -203,6 +208,13 @@ void Search::Worker::start_searching() {
     if (bestThread != this)
         sync_cout << main_manager()->pv(*bestThread, threads, tt, bestThread->completedDepth)
                   << sync_endl;
+
+    std::cerr << std::endl;
+    std::cerr << "everEvalIsSkipped: " << everEvalIsSkipped << std::endl;
+    std::cerr << "positionEverSaved: " << positionEverSaved << std::endl;
+    std::cerr << "globalSearch: " << globalSearch << std::endl;
+    std::cerr << "globalQsearch: " << globalQsearch << std::endl;
+    std::cerr << std::endl << std::endl;
 
     sync_cout << "bestmove " << UCI::move(bestThread->rootMoves[0].pv[0], rootPos.is_chess960());
 
@@ -510,6 +522,10 @@ template<NodeType nodeType>
 Value Search::Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
+    if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+        != std::string::npos)
+        globalSearch++;
+
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
@@ -597,7 +613,13 @@ Value Search::Worker::search(
     // Step 4. Transposition table lookup.
     excludedMove = ss->excludedMove;
     posKey       = pos.key();
-    tte          = tt.probe(posKey, ss->ttHit);
+
+    if (posKey == 11258407522955116289)
+    {
+        std::cerr << pos.fen() << std::endl;
+    }
+
+    tte       = tt.probe(posKey, ss->ttHit);
     ttValue   = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove    = rootNode  ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
               : ss->ttHit ? tte->move()
@@ -671,6 +693,12 @@ Value Search::Worker::search(
 
                 if (b == BOUND_EXACT || (b == BOUND_LOWER ? value >= beta : value <= alpha))
                 {
+                    if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+                        != std::string::npos)
+                    {
+                        positionEverSaved++;
+                    }
+
                     tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, b,
                               std::min(MAX_PLY - 1, depth + 6), Move::none(), VALUE_NONE,
                               tt.generation());
@@ -724,6 +752,12 @@ Value Search::Worker::search(
     {
         unadjustedStaticEval = evaluate(networks, pos, thisThread->optimism[us]);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+
+        if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+            != std::string::npos)
+        {
+            positionEverSaved++;
+        }
 
         // Static evaluation is saved as it was before adjustment by correction history
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, Move::none(),
@@ -871,6 +905,11 @@ Value Search::Worker::search(
 
                 if (value >= probCutBeta)
                 {
+                    if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+                        != std::string::npos)
+                    {
+                        positionEverSaved++;
+                    }
                     // Save ProbCut data into transposition table
                     tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3,
                               move, unadjustedStaticEval, tt.generation());
@@ -1341,11 +1380,20 @@ moves_loop:  // When in check, search starts here
     // Write gathered information in transposition table
     // Static evaluation is saved as it was before correction history
     if (!excludedMove && !(rootNode && thisThread->pvIdx))
+    {
+
+        if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+            != std::string::npos)
+        {
+            positionEverSaved++;
+        }
+
         tte->save(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv,
                   bestValue >= beta    ? BOUND_LOWER
                   : PvNode && bestMove ? BOUND_EXACT
                                        : BOUND_UPPER,
                   depth, bestMove, unadjustedStaticEval, tt.generation());
+    }
 
     // Adjust correction history
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
@@ -1371,6 +1419,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
+
+
+    if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+        != std::string::npos)
+        globalQsearch++;
 
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
@@ -1432,6 +1485,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     ttMove  = ss->ttHit ? tte->move() : Move::none();
     pvHit   = ss->ttHit && tte->is_pv();
 
+    if (posKey == 11258407522955116289)
+    {
+        std::cerr << std::endl << pos.fen() << std::endl;
+    }
+
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && tte->depth() >= ttDepth
         && ttValue != VALUE_NONE  // Only in case of TT access race or if !ttHit
@@ -1457,6 +1515,15 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             if (ttValue != VALUE_NONE
                 && (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER)))
                 bestValue = ttValue;
+
+
+            if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+                != std::string::npos)
+            {
+                std::cerr << std::endl
+                          << "bestValueOfQueenBlunder: " << bestValue << std::endl
+                          << std::endl;
+            }
         }
         else
         {
@@ -1466,11 +1533,18 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
                                    : -(ss - 1)->staticEval;
             ss->staticEval       = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+
+            if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+                != std::string::npos)
+            {
+                everEvalIsSkipped++;
+            }
         }
 
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
         {
+            // no check for saving here as the position is never evaluated
             if (!ss->ttHit)
                 tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER, DEPTH_NONE,
                           Move::none(), unadjustedStaticEval, tt.generation());
@@ -1618,6 +1692,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     // Save gathered info in transposition table
     // Static evaluation is saved as it was before adjustment by correction history
+    if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+        != std::string::npos)
+    {
+        positionEverSaved++;
+    }
+
     tte->save(posKey, value_to_tt(bestValue, ss->ply), pvHit,
               bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, ttDepth, bestMove,
               unadjustedStaticEval, tt.generation());
