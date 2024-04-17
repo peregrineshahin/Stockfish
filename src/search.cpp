@@ -46,6 +46,13 @@
 
 namespace Stockfish {
 
+int         searchHit          = 0;
+int         qsearchHit         = 0;
+int         positionEverSaved  = 0;
+int         everEvalIsSkipped  = 0;
+std::string blunderPosition    = "r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b";
+
+
 namespace TB = Tablebases;
 
 using Eval::evaluate;
@@ -203,6 +210,13 @@ void Search::Worker::start_searching() {
     if (bestThread != this)
         sync_cout << main_manager()->pv(*bestThread, threads, tt, bestThread->completedDepth)
                   << sync_endl;
+
+    std::cerr << std::endl;
+    std::cerr << "everEvalIsSkipped: " << everEvalIsSkipped << std::endl;
+    std::cerr << "positionEverSaved: " << positionEverSaved << std::endl;
+    std::cerr << "searchHit: " << searchHit << std::endl;
+    std::cerr << "qsearchHit: " << qsearchHit << std::endl;
+    std::cerr << std::endl << std::endl;
 
     sync_cout << "bestmove " << UCI::move(bestThread->rootMoves[0].pv[0], rootPos.is_chess960());
 
@@ -510,6 +524,9 @@ template<NodeType nodeType>
 Value Search::Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
+    if (pos.fen().find(blunderPosition) != std::string::npos)
+        searchHit++;
+
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
@@ -597,7 +614,8 @@ Value Search::Worker::search(
     // Step 4. Transposition table lookup.
     excludedMove = ss->excludedMove;
     posKey       = pos.key();
-    tte          = tt.probe(posKey, ss->ttHit);
+
+    tte       = tt.probe(posKey, ss->ttHit);
     ttValue   = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove    = rootNode  ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
               : ss->ttHit ? tte->move()
@@ -671,6 +689,17 @@ Value Search::Worker::search(
 
                 if (b == BOUND_EXACT || (b == BOUND_LOWER ? value >= beta : value <= alpha))
                 {
+                    if (pos.fen().find(blunderPosition) != std::string::npos)
+                    {
+                        positionEverSaved++;
+                    }
+
+                    if (uint16_t(posKey) == uint16_t(blunderPositionKey)
+                        && mul_hi64(posKey, 524288) == mul_hi64(blunderPositionKey, 524288))
+                    {
+                        sync_cout << std::endl << pos.fen() << sync_endl;
+                    }
+
                     tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, b,
                               std::min(MAX_PLY - 1, depth + 6), Move::none(), VALUE_NONE,
                               tt.generation());
@@ -716,6 +745,11 @@ Value Search::Worker::search(
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
+        if (pos.fen().find(blunderPosition) != std::string::npos)
+        {
+            positionEverSaved++;
+        }
+
         // ttValue can be used as a better position evaluation (~7 Elo)
         if (ttValue != VALUE_NONE && (tte->bound() & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER)))
             eval = ttValue;
@@ -726,6 +760,19 @@ Value Search::Worker::search(
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
         // Static evaluation is saved as it was before adjustment by correction history
+
+        if (pos.fen().find(blunderPosition) != std::string::npos)
+        {
+            positionEverSaved++;
+        }
+
+        if (uint16_t(posKey) == uint16_t(blunderPositionKey)
+            && mul_hi64(posKey, 524288) == mul_hi64(blunderPositionKey, 524288))
+        {
+            sync_cout << std::endl << pos.fen() << sync_endl;
+            sync_cout << std::endl << posKey << sync_endl;
+        }
+
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_NONE, Move::none(),
                   unadjustedStaticEval, tt.generation());
     }
@@ -871,6 +918,19 @@ Value Search::Worker::search(
 
                 if (value >= probCutBeta)
                 {
+                    if (pos.fen().find(blunderPosition) != std::string::npos)
+                    {
+                        positionEverSaved++;
+                    }
+
+                    if (uint16_t(posKey) == uint16_t(blunderPositionKey)
+                        && mul_hi64(posKey, 524288) == mul_hi64(blunderPositionKey, 524288))
+                    {
+                        sync_cout << std::endl << pos.fen() << sync_endl;
+                        sync_cout << std::endl << posKey << sync_endl;
+
+                    }
+
                     // Save ProbCut data into transposition table
                     tte->save(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER, depth - 3,
                               move, unadjustedStaticEval, tt.generation());
@@ -1341,11 +1401,27 @@ moves_loop:  // When in check, search starts here
     // Write gathered information in transposition table
     // Static evaluation is saved as it was before correction history
     if (!excludedMove && !(rootNode && thisThread->pvIdx))
+    {
+        if (pos.fen().find(blunderPosition) != std::string::npos)
+        {
+            positionEverSaved++;
+        }
+
+        if (uint16_t(posKey) == uint16_t(blunderPositionKey)
+            && mul_hi64(posKey, 524288) == mul_hi64(blunderPositionKey, 524288))
+        {
+            sync_cout << std::endl << pos.fen() << sync_endl;
+                        sync_cout << std::endl << posKey << sync_endl;
+
+        }
+
         tte->save(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv,
                   bestValue >= beta    ? BOUND_LOWER
                   : PvNode && bestMove ? BOUND_EXACT
                                        : BOUND_UPPER,
                   depth, bestMove, unadjustedStaticEval, tt.generation());
+    }
+
 
     // Adjust correction history
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
@@ -1371,6 +1447,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
+
+    if (pos.fen().find(blunderPosition) != std::string::npos)
+        qsearchHit++;
 
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
@@ -1457,6 +1536,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             if (ttValue != VALUE_NONE
                 && (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER)))
                 bestValue = ttValue;
+
+            if (pos.fen().find(blunderPosition) != std::string::npos)
+            {
+                std::cerr << std::endl
+                          << "bestValueOfQueenBlunder: " << bestValue << std::endl
+                          << std::endl;
+            }
         }
         else
         {
@@ -1466,14 +1552,33 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
                                    : -(ss - 1)->staticEval;
             ss->staticEval       = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+
+            if (pos.fen().find(blunderPosition) != std::string::npos)
+            {
+                everEvalIsSkipped++;
+            }
         }
 
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
         {
+
             if (!ss->ttHit)
+            {
+                // no check for saving here as the position is never evaluated
+                if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+                      == std::string::npos
+                    && uint16_t(posKey) == uint16_t(blunderPositionKey)
+                    && mul_hi64(posKey, 524288) == mul_hi64(blunderPositionKey, 524288))
+                {
+                    sync_cout << std::endl << pos.fen() << sync_endl;
+                        sync_cout << std::endl << posKey << sync_endl;
+
+                }
+
                 tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER, DEPTH_NONE,
                           Move::none(), unadjustedStaticEval, tt.generation());
+            }
 
             return bestValue;
         }
@@ -1615,6 +1720,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     if (std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY && bestValue >= beta)
         bestValue = (3 * bestValue + beta) / 4;
+
+    if (uint16_t(posKey) == uint16_t(blunderPositionKey)
+        && mul_hi64(posKey, 524288) == mul_hi64(blunderPositionKey, 524288))
+    {
+        sync_cout << std::endl << pos.fen() << sync_endl;
+        sync_cout << std::endl << posKey << sync_endl;
+    }
 
     // Save gathered info in transposition table
     // Static evaluation is saved as it was before adjustment by correction history

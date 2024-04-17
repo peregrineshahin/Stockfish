@@ -85,6 +85,14 @@ Value Eval::evaluate(const Eval::NNUE::Networks& networks, const Position& pos, 
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 
+
+    /// ever evaluated
+    if (pos.fen().find("r3n1k1/1p2Qpb1/2p1b1p1/r3p2p/8/P1NPPB1P/1BP3P1/1R3R1K b")
+        != std::string::npos)
+    {
+        assert(false);
+    }
+
     return v;
 }
 
