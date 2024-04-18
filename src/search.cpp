@@ -538,9 +538,9 @@ Value Search::Worker::search(
     Move     ttMove, move, excludedMove, bestMove;
     Depth    extension, newDepth;
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
-    bool     givesCheck, improving, priorCapture, opponentWorsening;
+    bool     givesCheck, improving, opponentWorsening;
     bool     capture, moveCountPruning, ttCapture;
-    Piece    movedPiece;
+    Piece    movedPiece, priorCapture;
     int      moveCount, captureCount, quietCount;
 
     // Step 1. Initialize node
@@ -813,7 +813,7 @@ Value Search::Worker::search(
 
     // Step 10. Internal iterative reductions (~9 Elo)
     // For PV nodes without a ttMove, we decrease depth by 3.
-    if (PvNode && !ttMove)
+    if (PvNode && !ttMove && type_of(priorCapture) != QUEEN)
         depth -= 3;
 
     // Use qsearch if depth <= 0.
