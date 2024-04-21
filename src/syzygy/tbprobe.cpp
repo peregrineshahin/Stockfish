@@ -1629,6 +1629,11 @@ bool Tablebases::root_probe(Position& pos, Search::RootMoves& rootMoves, bool ru
                            : 0;
         m.tbRank = r;
 
+
+
+
+        
+
         // Determine the score to be displayed for this move. Assign at least
         // 1 cp to cursed wins and let it grow to 49 cp as the positions gets
         // closer to a real win.
