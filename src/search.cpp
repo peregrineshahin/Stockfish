@@ -441,7 +441,7 @@ void Search::Worker::iterative_deepening() {
             int    el                  = std::clamp((bestValue + 750) / 150, 0, 9);
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
-                             * bestMoveInstability * EvalLevel[el];
+                             * bestMoveInstability * EvalLevel[el] * 0.945;
 
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
