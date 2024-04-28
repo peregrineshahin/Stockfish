@@ -1405,7 +1405,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     Key      posKey;
     Move     ttMove, move, bestMove;
     Depth    ttDepth;
-    Value    bestValue, value, ttValue, futilityBase;
+    Bound    ttBound;
+    Value    unadjustedStaticEval, bestValue, value, ttValue, futilityBase;
     bool     pvHit, givesCheck, capture;
     int      moveCount;
     Color    us = pos.side_to_move();
@@ -1444,58 +1445,58 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     ttMove  = ss->ttHit ? tte->move() : Move::none();
     pvHit   = ss->ttHit && tte->is_pv();
 
-    // At non-PV nodes we check for an early TT cutoff
-    if (!PvNode && tte->depth() >= ttDepth
-        && ttValue != VALUE_NONE  // Only in case of TT access race or if !ttHit
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
-        return ttValue;
-
     // Step 4. Static evaluation of the position
-    Value unadjustedStaticEval = VALUE_NONE;
-    if (ss->inCheck)
-        bestValue = futilityBase = -VALUE_INFINITE;
-    else
+    unadjustedStaticEval = ss->staticEval = VALUE_NONE;
+    bestValue = futilityBase = -VALUE_INFINITE;
+
+    if (ttValue != VALUE_NONE)
     {
-        if (ss->ttHit)
+        ttBound   = tte->bound();
+        bestValue = ttValue;
+        if (tte->depth() >= ttDepth && ttBound & (bestValue >= beta ? BOUND_LOWER : BOUND_UPPER))
+            return ttValue;
+
+        if (!ss->inCheck)
         {
             // Never assume anything about values stored in TT
             unadjustedStaticEval = tte->eval();
             if (unadjustedStaticEval == VALUE_NONE)
                 unadjustedStaticEval =
                   evaluate(networks, pos, refreshTable, thisThread->optimism[us]);
-            ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+            ss->staticEval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
             // ttValue can be used as a better position evaluation (~13 Elo)
-            if (ttValue != VALUE_NONE
-                && (tte->bound() & (ttValue > bestValue ? BOUND_LOWER : BOUND_UPPER)))
-                bestValue = ttValue;
+            if ((ttBound & (ss->staticEval <= bestValue ? BOUND_LOWER : BOUND_UPPER)))
+                bestValue = ss->staticEval;
+            else
+                ss->staticEval = bestValue;
+            futilityBase = ss->staticEval + 250;
         }
-        else
-        {
-            // In case of null move search, use previous static eval with a different sign
-            unadjustedStaticEval = (ss - 1)->currentMove != Move::null()
-                                   ? evaluate(networks, pos, refreshTable, thisThread->optimism[us])
-                                   : -(ss - 1)->staticEval;
-            ss->staticEval       = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
-        }
-
-        // Stand pat. Return immediately if static value is at least beta
-        if (bestValue >= beta)
-        {
-            if (!ss->ttHit)
-                tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER, DEPTH_NONE,
-                          Move::none(), unadjustedStaticEval, tt.generation());
-
-            return bestValue;
-        }
-
-        if (bestValue > alpha)
-            alpha = bestValue;
-
+    }
+    else if (!ss->inCheck)
+    {
+        // In case of null move search, use previous static eval with a different sign
+        unadjustedStaticEval = (ss - 1)->currentMove != Move::null()
+                               ? evaluate(networks, pos, refreshTable, thisThread->optimism[us])
+                               : -(ss - 1)->staticEval;
+        ss->staticEval       = bestValue =
+          to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
         futilityBase = ss->staticEval + 250;
     }
+
+    // Stand pat. Return immediately if static value is at least beta
+    if (bestValue >= beta)
+    {
+        if (ttValue == VALUE_NONE)
+            tte->save(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER, DEPTH_NONE,
+                      Move::none(), unadjustedStaticEval, tt.generation());
+
+        return bestValue;
+    }
+
+    if (bestValue > alpha)
+        alpha = bestValue;
+
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
                                         (ss - 2)->continuationHistory};
