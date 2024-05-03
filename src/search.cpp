@@ -245,6 +245,7 @@ void Search::Worker::iterative_deepening() {
         (ss - i)->continuationHistory =
           &this->continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->staticEval = VALUE_NONE;
+        (ss - i)->ttValue    = VALUE_NONE;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
@@ -607,6 +608,7 @@ Value Search::Worker::search(
                           : Move::none();
     ttCapture = ttMove && pos.capture_stage(ttMove);
 
+    ss->ttValue = ttValue;
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
     if (!excludedMove)
@@ -736,7 +738,11 @@ Value Search::Worker::search(
     // Use static evaluation difference to improve quiet move ordering (~9 Elo)
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
-        int bonus = std::clamp(-14 * int((ss - 1)->staticEval + ss->staticEval), -1644, 1384);
+        int difference = ttValue == VALUE_NONE || (ss - 1)->ttValue == VALUE_NONE
+                         ? (ss - 1)->staticEval + ss->staticEval
+                         : (ss - 1)->ttValue + ttValue;
+
+        int bonus = std::clamp(-14 * difference, -1644, 1384);
         bonus     = bonus > 0 ? 2 * bonus : bonus / 2;
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
@@ -1444,6 +1450,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     ttValue = ss->ttHit ? value_from_tt(tte->value(), ss->ply, pos.rule50_count()) : VALUE_NONE;
     ttMove  = ss->ttHit ? tte->move() : Move::none();
     pvHit   = ss->ttHit && tte->is_pv();
+
+    ss->ttValue = ttValue;
 
     // At non-PV nodes we check for an early TT cutoff
     if (!PvNode && tte->depth() >= ttDepth
