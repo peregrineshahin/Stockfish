@@ -702,20 +702,13 @@ Value Search::Worker::search(
         goto moves_loop;
     }
     else if (excludedMove)
-    {
-        // Providing the hint that this node's accumulator will be used often
-        // brings significant Elo gain (~13 Elo).
-        Eval::NNUE::hint_common_parent_position(pos, networks, refreshTable);
         unadjustedStaticEval = eval = ss->staticEval;
-    }
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
         unadjustedStaticEval = tte->eval();
         if (unadjustedStaticEval == VALUE_NONE)
             unadjustedStaticEval = evaluate(networks, pos, refreshTable, thisThread->optimism[us]);
-        else if (PvNode)
-            Eval::NNUE::hint_common_parent_position(pos, networks, refreshTable);
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
@@ -881,8 +874,6 @@ Value Search::Worker::search(
                                                                      : value;
                 }
             }
-
-        Eval::NNUE::hint_common_parent_position(pos, networks, refreshTable);
     }
 
 moves_loop:  // When in check, search starts here
