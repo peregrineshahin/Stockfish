@@ -739,6 +739,9 @@ Value Search::Worker::search(
         int bonus = std::clamp(-14 * int((ss - 1)->staticEval + ss->staticEval), -1644, 1384);
         bonus     = bonus > 0 ? 2 * bonus : bonus / 2;
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
+        if (bonus > 0)
+            thisThread->mainHistory[us][((ss - 1)->currentMove).from_to()] << (-bonus / 6);
+
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
               << bonus / 2;
