@@ -76,6 +76,7 @@ struct Stack {
     bool            ttHit;
     int             multipleExtensions;
     int             cutoffCnt;
+    Value           ttValue;
 };
 
 
