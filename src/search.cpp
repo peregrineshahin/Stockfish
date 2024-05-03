@@ -734,7 +734,8 @@ Value Search::Worker::search(
     }
 
     // Use static evaluation difference to improve quiet move ordering (~9 Elo)
-    if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
+    if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture
+        && !(ttCapture && ttValue >= beta && tte->bound() & BOUND_LOWER))
     {
         int bonus = std::clamp(-14 * int((ss - 1)->staticEval + ss->staticEval), -1644, 1384);
         bonus     = bonus > 0 ? 2 * bonus : bonus / 2;
