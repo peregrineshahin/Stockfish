@@ -1157,7 +1157,8 @@ moves_loop:  // When in check, search starts here
         r -= ss->statScore / 13182;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
-        if (depth >= 2 && moveCount > 1 + rootNode)
+        if (depth >= 2
+            && moveCount > 1 + rootNode - 2 * (ttValue <= alpha && tte->bound() == BOUND_UPPER))
         {
             // In general we want to cap the LMR depth search at newDepth, but when
             // reduction is negative, we allow this move a limited search extension
