@@ -631,6 +631,20 @@ Value Search::Worker::search(
                                               -stat_malus(depth + 1));
         }
 
+        auto ttEval = tte->eval();
+        // Use static evaluation difference to improve quiet move ordering (~9 Elo)
+        if (ttEval != VALUE_NONE && ((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck
+            && !priorCapture)
+        {
+            int bonus = std::clamp(-14 * int((ss - 1)->staticEval + ttEval), -1644, 1384);
+            bonus     = bonus > 0 ? 2 * bonus : bonus / 2;
+            thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
+            if (type_of(pos.piece_on(prevSq)) != PAWN
+                && ((ss - 1)->currentMove).type_of() != PROMOTION)
+                thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+                  << bonus / 2;
+        }
+
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
