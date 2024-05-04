@@ -763,7 +763,12 @@ Value Search::Worker::search(
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
+        {
+            if (!ttCapture && ttMove)
+                update_quiet_stats(pos, ss, *this, ttMove, 2 * -stat_malus(depth));
+
             return value;
+        }
     }
 
     // Step 8. Futility pruning: child node (~40 Elo)
