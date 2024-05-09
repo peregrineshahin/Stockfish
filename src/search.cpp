@@ -615,12 +615,13 @@ Value Search::Worker::search(
         ss->ttPv = PvNode || (ss->ttHit && tte->is_pv());
 
     // At non-PV nodes we check for an early TT cutoff
-    if (!excludedMove && tte->depth() > depth
+    if ((!PvNode || (ttValue < alpha - 433 - (302 - 141 * ((ss + 1)->cutoffCnt > 3)) * depth * depth))
+        && !excludedMove && tte->depth() > depth
         && ttValue != VALUE_NONE  // Possible in case of TT access race or if !ttHit
         && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
     {
         // If ttMove is quiet, update move sorting heuristics on TT hit (~2 Elo)
-        if (!PvNode && ttMove && ttValue >= beta)
+        if (ttMove && ttValue >= beta)
         {
             // Bonus for a quiet ttMove that fails high (~2 Elo)
             if (!ttCapture)
@@ -761,7 +762,7 @@ Value Search::Worker::search(
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
     // Adjust razor margin according to cutoffCnt. (~1 Elo)
-    if (eval < alpha - 433 - (302 - 141 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
+    if (!PvNode && eval < alpha - 433 - (302 - 141 * ((ss + 1)->cutoffCnt > 3)) * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
