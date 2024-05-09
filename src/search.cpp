@@ -1522,54 +1522,57 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         // Step 6. Pruning
         if (bestValue > VALUE_TB_LOSS_IN_MAX_PLY && pos.non_pawn_material(us))
         {
-            // Futility pruning and moveCount pruning (~10 Elo)
-            if (!givesCheck && move.to_sq() != prevSq && futilityBase > VALUE_TB_LOSS_IN_MAX_PLY
-                && move.type_of() != PROMOTION)
+            if (!givesCheck)
             {
-                if (moveCount > 2)
-                    continue;
-
-                Value futilityValue = futilityBase + PieceValue[pos.piece_on(move.to_sq())];
-
-                // If static eval + value of piece we are going to capture is much lower
-                // than alpha we can prune this move. (~2 Elo)
-                if (futilityValue <= alpha)
+                // Futility pruning and moveCount pruning (~10 Elo)
+                if (move.to_sq() != prevSq && futilityBase > VALUE_TB_LOSS_IN_MAX_PLY
+                    && move.type_of() != PROMOTION)
                 {
-                    bestValue = std::max(bestValue, futilityValue);
-                    continue;
+                    if (moveCount > 2)
+                        continue;
+
+                    Value futilityValue = futilityBase + PieceValue[pos.piece_on(move.to_sq())];
+
+                    // If static eval + value of piece we are going to capture is much lower
+                    // than alpha we can prune this move. (~2 Elo)
+                    if (futilityValue <= alpha)
+                    {
+                        bestValue = std::max(bestValue, futilityValue);
+                        continue;
+                    }
+
+                    // If static eval is much lower than alpha and move is not winning material
+                    // we can prune this move. (~2 Elo)
+                    if (futilityBase <= alpha && !pos.see_ge(move, 1))
+                    {
+                        bestValue = std::max(bestValue, futilityBase);
+                        continue;
+                    }
+
+                    // If static exchange evaluation is much worse than what is needed to not
+                    // fall below alpha we can prune this move.
+                    if (futilityBase > alpha && !pos.see_ge(move, (alpha - futilityBase) * 4))
+                    {
+                        bestValue = alpha;
+                        continue;
+                    }
                 }
 
-                // If static eval is much lower than alpha and move is not winning material
-                // we can prune this move. (~2 Elo)
-                if (futilityBase <= alpha && !pos.see_ge(move, 1))
-                {
-                    bestValue = std::max(bestValue, futilityBase);
-                    continue;
-                }
+                // We prune after the second quiet check evasion move, where being 'in check' is
+                // implicitly checked through the counter, and being a 'quiet move' apart from
+                // being a tt move is assumed after an increment because captures are pushed ahead.
+                if (quietCheckEvasions > 1)
+                    break;
 
-                // If static exchange evaluation is much worse than what is needed to not
-                // fall below alpha we can prune this move.
-                if (futilityBase > alpha && !pos.see_ge(move, (alpha - futilityBase) * 4))
-                {
-                    bestValue = alpha;
+                // Continuation history based pruning (~3 Elo)
+                if (!capture
+                    && (*contHist[0])[pos.moved_piece(move)][move.to_sq()]
+                           + (*contHist[1])[pos.moved_piece(move)][move.to_sq()]
+                           + thisThread->pawnHistory[pawn_structure_index(pos)]
+                                                    [pos.moved_piece(move)][move.to_sq()]
+                         <= 4000)
                     continue;
-                }
             }
-
-            // We prune after the second quiet check evasion move, where being 'in check' is
-            // implicitly checked through the counter, and being a 'quiet move' apart from
-            // being a tt move is assumed after an increment because captures are pushed ahead.
-            if (quietCheckEvasions > 1)
-                break;
-
-            // Continuation history based pruning (~3 Elo)
-            if (!capture
-                && (*contHist[0])[pos.moved_piece(move)][move.to_sq()]
-                       + (*contHist[1])[pos.moved_piece(move)][move.to_sq()]
-                       + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)]
-                                                [move.to_sq()]
-                     <= 4000)
-                continue;
 
             // Do not search moves with bad enough SEE values (~5 Elo)
             if (!pos.see_ge(move, -69))
