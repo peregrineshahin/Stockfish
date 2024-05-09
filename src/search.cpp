@@ -1585,7 +1585,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
           &thisThread
              ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][move.to_sq()];
 
-        quietCheckEvasions += !capture && ss->inCheck;
+        quietCheckEvasions += !capture && ss->inCheck && !givesCheck;
 
         // Step 7. Make and search the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
