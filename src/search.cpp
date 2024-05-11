@@ -589,7 +589,12 @@ Value Search::Worker::search(
             return alpha;
     }
     else
+    {
         thisThread->rootDelta = beta - alpha;
+
+        if (thisThread->pvIdx > 0 && depth > 3)
+            depth -= 2;
+    }
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
