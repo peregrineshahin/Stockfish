@@ -1277,6 +1277,9 @@ moves_loop:  // When in check, search starts here
 
                 if (value >= beta)
                 {
+                    if (!excludedMove && moveCount >= 2 && ttMove && !ttCapture
+                        && tte->bound() & BOUND_LOWER)
+                        update_quiet_histories(pos, ss, *this, ttMove, -stat_malus(depth));
                     ss->cutoffCnt += 1 + !ttMove;
                     assert(value >= beta);  // Fail high
                     break;
