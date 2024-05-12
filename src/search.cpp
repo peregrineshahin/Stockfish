@@ -800,8 +800,16 @@ Value Search::Worker::search(
         // Do not return unproven mate or TB scores
         if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
         {
+            bool isNotSingularTtMove =
+              !ttCapture && ttMove && depth >= 4 - (thisThread->completedDepth > 32) + ss->ttPv
+              && std::abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && (tte->bound() & BOUND_LOWER);
+
             if (thisThread->nmpMinPly || depth < 16)
+            {
+                if (isNotSingularTtMove)
+                    update_quiet_histories(pos, ss, *this, ttMove, -stat_malus(depth));
                 return nullValue;
+            }
 
             assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
 
@@ -814,7 +822,11 @@ Value Search::Worker::search(
             thisThread->nmpMinPly = 0;
 
             if (v >= beta)
+            {
+                if (isNotSingularTtMove)
+                    update_quiet_histories(pos, ss, *this, ttMove, -stat_malus(depth));
                 return nullValue;
+            }
         }
     }
 
