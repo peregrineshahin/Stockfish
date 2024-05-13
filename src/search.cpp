@@ -1416,12 +1416,16 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     ss->inCheck        = pos.checkers();
     moveCount          = 0;
 
+    // Check for the available remaining time
+    if (is_mainthread())
+        main_manager()->check_time(*thisThread);
+
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
         thisThread->selDepth = ss->ply + 1;
 
     // Step 2. Check for an immediate draw or maximum ply reached
-    if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
+    if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
         return (ss->ply >= MAX_PLY && !ss->inCheck)
                ? evaluate(networks, pos, refreshTable, thisThread->optimism[us])
                : VALUE_DRAW;
@@ -1586,6 +1590,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         pos.undo_move(move);
 
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
+
+        // Finished searching the move. If a stop occurred, the return value of
+        // the search cannot be trusted, and we return immediately without
+        // updating best move, PV and TT.
+        if (threads.stop.load(std::memory_order_relaxed))
+            return VALUE_ZERO;
 
         // Step 8. Check for a new best move
         if (value > bestValue)
