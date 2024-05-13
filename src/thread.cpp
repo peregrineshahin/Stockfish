@@ -270,9 +270,9 @@ Thread* ThreadPool::get_best_thread() const {
           newThreadScore != -VALUE_INFINITE && newThreadScore <= VALUE_TB_LOSS_IN_MAX_PLY;
 
         // Note that we make sure not to pick a thread with truncated-PV for better viewer experience.
-        const bool betterVotingValue =
-          thread_voting_value(th) * int(newThreadPV.size() > 2)
-          > thread_voting_value(bestThread) * int(bestThreadPV.size() > 2);
+        const bool betterVotingValue = thread_voting_value(th) > thread_voting_value(bestThread)
+                                    || (thread_voting_value(th) == thread_voting_value(bestThread)
+                                        && newThreadPV.size() > bestThreadPV.size());
 
         if (bestThreadInProvenWin)
         {
