@@ -37,7 +37,10 @@ void TTEntry::save(
 
     // Preserve the old ttmove if we don't have a new one
     if (m || uint16_t(k) != key16)
-        move16 = m;
+    {
+        genBound8 = uint8_t(generation8 | uint8_t(pv) << 2 | b);
+        move16    = m;
+    }
 
     // Overwrite less valuable entries (cheapest checks first)
     if (b == BOUND_EXACT || uint16_t(k) != key16 || d - DEPTH_OFFSET + 2 * pv > depth8 - 4
