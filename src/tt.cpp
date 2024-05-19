@@ -35,6 +35,8 @@ namespace Stockfish {
 void TTEntry::save(
   Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
 
+    genBound8 = uint8_t(generation8 | uint8_t(pv) << 2 | b);
+
     // Preserve the old ttmove if we don't have a new one
     if (m || uint16_t(k) != key16)
         move16 = m;
@@ -46,11 +48,10 @@ void TTEntry::save(
         assert(d > DEPTH_OFFSET);
         assert(d < 256 + DEPTH_OFFSET);
 
-        key16     = uint16_t(k);
-        depth8    = uint8_t(d - DEPTH_OFFSET);
-        genBound8 = uint8_t(generation8 | uint8_t(pv) << 2 | b);
-        value16   = int16_t(v);
-        eval16    = int16_t(ev);
+        key16   = uint16_t(k);
+        depth8  = uint8_t(d - DEPTH_OFFSET);
+        value16 = int16_t(v);
+        eval16  = int16_t(ev);
     }
 }
 
