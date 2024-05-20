@@ -1119,28 +1119,13 @@ moves_loop:  // When in check, search starts here
         if (ss->ttPv)
             r -= 1 + (ttValue > alpha) + (tte->depth() >= depth);
 
-        else if (cutNode && move != ttMove && move != ss->killers[0])
-            r++;
-
-        // Increase reduction for cut nodes (~4 Elo)
-        if (cutNode)
-            r += 2 - (tte->depth() >= depth && ss->ttPv);
-
-        // Increase reduction if ttMove is a capture (~3 Elo)
-        if (ttCapture)
-            r++;
-
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
             r--;
 
-        // Increase reduction if next ply has a lot of fail high (~5 Elo)
-        if ((ss + 1)->cutoffCnt > 3)
-            r++;
-
         // Set reduction to 0 for first picked move (ttMove) (~2 Elo)
         // Nullifies all previous reduction adjustments to ttMove and leaves only history to do them
-        else if (move == ttMove)
+        if (move == ttMove)
             r = 0;
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
