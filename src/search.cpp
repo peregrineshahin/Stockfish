@@ -151,8 +151,107 @@ Search::Worker::Worker(SharedState&                    sharedState,
     clear();
 }
 
-void Search::Worker::start_searching() {
+// Initialize the condition data map with custom values
+std::unordered_map<std::string, ConditionData> Search::conditionDataMap = {
+  {"ttPv", ConditionData(-1)},  // Example custom initial reduction value
+  {"PvNode", ConditionData(-1)},   {"cutNode", ConditionData(2)},   {"ttCapture", ConditionData(1)},
+  {"cutoffCnt", ConditionData(1)}, {"ttMove", ConditionData(0)},    {"ttMove", ConditionData(0)},
+  {"complex1", ConditionData(-2)}, {"complex2", ConditionData(-2)}, {"complex3", ConditionData(1)},
+  {"complex4", ConditionData(3)},  {"complex5", ConditionData(0)},
+};
 
+// Function to update condition data for a specific condition
+void Search::updateConditionData(const std::string& condition,
+                                 int                reduction,
+                                 bool               successfulReduction) {
+    auto& data                       = conditionDataMap[condition];
+    auto& [successCount, totalCount] = data.successRates[reduction];
+    totalCount++;
+    if (successfulReduction)
+    {
+        successCount++;
+    }
+
+    // Determine the best reduction value based on success rates
+    int    bestReduction   = data.reduction;
+    double bestSuccessRate = 0;
+    for (const auto& [key, value] : data.successRates)
+    {
+        double successRate =
+          (value.second > 0) ? static_cast<double>(value.first) / value.second : 0.0;
+        if (successRate > bestSuccessRate)
+        {
+            bestSuccessRate = successRate;
+            bestReduction   = key;
+        }
+    }
+
+    // Adjust the reduction based on the success rate
+    double currentSuccessRate = (data.successRates[bestReduction].second > 0)
+                                ? static_cast<double>(data.successRates[bestReduction].first)
+                                    / data.successRates[bestReduction].second
+                                : 0.0;
+
+
+    if (currentSuccessRate == 0)
+        data.reduction = bestReduction;
+    else if (currentSuccessRate > 0.50)
+        data.reduction = (bestReduction > 0) ? bestReduction + 1 : bestReduction - 1;
+    else
+        data.reduction = (bestReduction < 0) ? bestReduction + 1 : bestReduction - 1;
+
+    // Ensure reduction values stay within reasonable bounds
+    data.reduction = std::clamp(data.reduction, -3, 3);
+}
+
+// Function to determine reduction
+int Search::determineReduction(bool ttPv,
+                               bool PvNode,
+                               bool cutNode,
+                               bool ttCapture,
+                               bool cutoffCnt,
+                               bool equalTtMove,
+                               bool complex1,
+                               bool complex2,
+                               bool complex3,
+                               bool complex4) {
+    int r = 0;
+
+    if (ttPv)
+        r += conditionDataMap["ttPv"].reduction;
+
+    if (PvNode)
+        r += conditionDataMap["PvNode"].reduction;
+
+    if (cutNode)
+        r += conditionDataMap["cutNode"].reduction;
+
+    if (ttCapture)
+        r += conditionDataMap["ttCapture"].reduction;
+
+    if (cutoffCnt)
+        r += conditionDataMap["cutoffCnt"].reduction;
+
+    if (equalTtMove)
+        r += conditionDataMap["equalTtMove"].reduction;
+
+    if (complex1)
+        r += conditionDataMap["complex1"].reduction;
+
+    if (complex2)
+        r += conditionDataMap["complex2"].reduction;
+
+    if (complex3)
+        r += conditionDataMap["complex3"].reduction;
+
+    if (complex4)
+        r += conditionDataMap["complex4"].reduction;
+
+    return r;
+}
+
+
+void Search::Worker::start_searching() {
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
     {
@@ -1132,38 +1231,11 @@ moves_loop:  // When in check, search starts here
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
 
-        // These reduction adjustments have proven non-linear scaling.
-        // They are optimized to time controls of 180 + 1.8 and longer so
-        // changing them or adding conditions that are similar
-        // requires tests at these types of time controls.
-
-        // Decrease reduction if position is or has been on the PV (~7 Elo)
-        if (ss->ttPv)
-            r -= 1 + (ttValue > alpha) + (tte->depth() >= depth);
-
-        // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
-        if (PvNode)
-            r--;
-
-        // These reduction adjustments have no proven non-linear scaling.
-
-        // Increase reduction for cut nodes (~4 Elo)
-        if (cutNode)
-            r += 2 - (tte->depth() >= depth && ss->ttPv)
-               + (!ss->ttPv && move != ttMove && move != ss->killers[0]);
-
-        // Increase reduction if ttMove is a capture (~3 Elo)
-        if (ttCapture)
-            r++;
-
-        // Increase reduction if next ply has a lot of fail high (~5 Elo)
-        if ((ss + 1)->cutoffCnt > 3)
-            r++;
-
-        // For first picked move (ttMove) reduce reduction
-        // but never allow it to go below 0 (~3 Elo)
-        else if (move == ttMove)
-            r = std::max(0, r - 2);
+        r += determineReduction(ss->ttPv, PvNode, cutNode, ttCapture, (ss + 1)->cutoffCnt > 3,
+                                ttMove == tte->move(), ss->ttPv && (ttValue > alpha),
+                                ss->ttPv && (tte->depth() >= depth),
+                                cutNode && (tte->depth() >= depth && ss->ttPv),
+                                cutNode && (!ss->ttPv && move != ttMove && move != ss->killers[0]));
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                       + (*contHist[0])[movedPiece][move.to_sq()]
@@ -1187,22 +1259,49 @@ moves_loop:  // When in check, search starts here
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
             {
-                // Adjust full-depth search based on LMR results - if the result
-                // was good enough search deeper, if it was bad enough search shallower.
-                const bool doDeeperSearch    = value > (bestValue + 36 + 2 * newDepth);  // (~1 Elo)
-                const bool doShallowerSearch = value < bestValue + newDepth;             // (~2 Elo)
+                bool success = true;
+                if (d < newDepth)
+                {
+                    // Adjust full-depth search based on LMR results - if the result
+                    // was good enough search deeper, if it was bad enough search shallower.
+                    const bool doDeeperSearch =
+                      value > (bestValue + 36 + 2 * newDepth);                    // (~1 Elo)
+                    const bool doShallowerSearch = value < bestValue + newDepth;  // (~2 Elo)
 
-                newDepth += doDeeperSearch - doShallowerSearch;
+                    newDepth += doDeeperSearch - doShallowerSearch;
 
-                if (newDepth > d)
-                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                    if (newDepth > d)
+                    {
+                        value =
+                          -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                        success = value > alpha;
+                    }
 
-                // Post LMR continuation history updates (~1 Elo)
-                int bonus = value <= alpha ? -stat_malus(newDepth)
-                          : value >= beta  ? stat_bonus(newDepth)
-                                           : 0;
+                    // Post LMR continuation history updates (~1 Elo)
+                    int bonus = value <= alpha ? -stat_malus(newDepth)
+                              : value >= beta  ? stat_bonus(newDepth)
+                                               : 0;
 
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                    update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                }
+                std::vector<std::pair<std::string, bool>> conditions = {
+                  {"ttPv", ss->ttPv},
+                  {"PvNode", PvNode},
+                  {"cutNode", cutNode},
+                  {"ttCapture", ttCapture},
+                  {"cutoffCnt", (ss + 1)->cutoffCnt > 3},
+                  {"equalTtMove", move == tte->move()},
+                  {"complex1", ss->ttPv && (ttValue > alpha)},
+                  {"complex2", ss->ttPv && (tte->depth() >= depth)},
+                  {"complex3", cutNode && (tte->depth() >= depth && ss->ttPv)},
+                  {"complex4", cutNode && (!ss->ttPv && move != ttMove && move != ss->killers[0])}};
+
+                for (const auto& condition : conditions)
+                {
+                    updateConditionData(condition.first,
+                                        conditionDataMap[condition.first].reduction,
+                                        success && condition.second);
+                }
             }
         }
 

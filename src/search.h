@@ -50,12 +50,25 @@ enum NodeType {
     Root
 };
 
+struct ConditionData {
+    int reduction;
+    std::map<int, std::pair<int, int>>
+      successRates;  // reduction value to (success count, total count)
+
+    ConditionData(int initReduction = 1) :
+        reduction(initReduction) {
+        for (int i = -3; i <= 3; ++i)
+        {
+            successRates[i] = {0, 0};
+        }
+    }
+};
+
 class TranspositionTable;
 class ThreadPool;
 class OptionsMap;
 
 namespace Search {
-
 // Stack struct keeps track of the information we need to remember from nodes
 // shallower and deeper in the tree during the search. Each search thread has
 // its own array of Stack objects, indexed by the current ply.
@@ -104,6 +117,26 @@ struct RootMove {
 };
 
 using RootMoves = std::vector<RootMove>;
+
+// Declare a map to track condition data
+extern std::unordered_map<std::string, ConditionData> conditionDataMap;
+
+
+// Function to update condition data for a specific condition
+void updateConditionData(const std::string& condition, int reduction, bool successfulReduction);
+
+
+// Function to determine reduction
+int determineReduction(bool ttPv,
+                       bool PvNode,
+                       bool cutNode,
+                       bool ttCapture,
+                       bool cutoffCnt,
+                       bool equalTtMove,
+                       bool complex1,
+                       bool complex2,
+                       bool complex3,
+                       bool complex4);
 
 
 // LimitsType struct stores information sent by the caller about the analysis required.
@@ -209,6 +242,7 @@ class SearchManager: public ISearchManager {
 
     Stockfish::TimeManagement tm;
     double                    originalTimeAdjust;
+    int                       originalPly;
     int                       callsCnt;
     std::atomic_bool          ponder;
 
