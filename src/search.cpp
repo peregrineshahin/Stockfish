@@ -855,7 +855,7 @@ Value Search::Worker::search(
       // there and in further interactions with transposition table cutoff depth is set to depth - 3
       // because probCut search has depth set to depth - 4 but we also do a move before it
       // So effective depth is equal to depth - 3
-      && !(tte->depth() >= depth - 3 && ttValue != VALUE_NONE && ttValue < probCutBeta))
+      && (tte->depth() < depth - 3 || ttValue >= beta))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
