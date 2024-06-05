@@ -857,6 +857,9 @@ Value Search::Worker::search(
       // So effective depth is equal to depth - 3
       && !(tte->depth() >= depth - 3 && ttValue != VALUE_NONE && ttValue < probCutBeta))
     {
+        if (ttMove && tte->depth() < depth - 1 && ttValue != VALUE_NONE && ttValue >= probCutBeta)
+            return (probCutBeta + beta) / 2;
+
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttMove, probCutBeta - ss->staticEval, &thisThread->captureHistory);
