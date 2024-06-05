@@ -847,7 +847,7 @@ Value Search::Worker::search(
     // Step 11. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search returns a value
     // much above beta, we can (almost) safely prune the previous move.
-    probCutBeta = beta + 185 - 60 * improving;
+    probCutBeta = (ttValue != VALUE_NONE && ttValue > beta ? ttValue : beta) + 185 - 60 * improving;
     if (
       !PvNode && depth > 3
       && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
@@ -855,7 +855,7 @@ Value Search::Worker::search(
       // there and in further interactions with transposition table cutoff depth is set to depth - 3
       // because probCut search has depth set to depth - 4 but we also do a move before it
       // So effective depth is equal to depth - 3
-      && !(tte->depth() >= depth - 3 && ttValue != VALUE_NONE && ttValue < probCutBeta))
+      && !(tte->depth() >= depth - 3 && ttValue != VALUE_NONE))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
