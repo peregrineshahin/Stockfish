@@ -318,6 +318,12 @@ void Search::Worker::iterative_deepening() {
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta, VALUE_INFINITE);
 
+            if (rootMoves[pvIdx].score >= VALUE_TB_WIN_IN_MAX_PLY)
+            {
+                beta  = VALUE_INFINITE;
+                alpha = rootMoves[pvIdx].score - 1;
+            }
+
             // Adjust optimism based on root move's averageScore (~4 Elo)
             optimism[us]  = 127 * avg / (std::abs(avg) + 86);
             optimism[~us] = -optimism[us];
@@ -359,8 +365,16 @@ void Search::Worker::iterative_deepening() {
                 // re-search, otherwise exit the loop.
                 if (bestValue <= alpha)
                 {
-                    beta  = (alpha + beta) / 2;
-                    alpha = std::max(bestValue - delta, -VALUE_INFINITE);
+                    if (bestValue < VALUE_TB_WIN_IN_MAX_PLY)
+                    {
+                        beta  = (alpha + beta) / 2;
+                        alpha = std::max(bestValue - delta, -VALUE_INFINITE);
+                    }
+                    else
+                    {
+                        alpha = bestValue - 1;
+                        beta  = VALUE_INFINITE;
+                    }
 
                     failedHighCnt = 0;
                     if (mainThread)
@@ -368,7 +382,13 @@ void Search::Worker::iterative_deepening() {
                 }
                 else if (bestValue >= beta)
                 {
-                    beta = std::min(bestValue + delta, VALUE_INFINITE);
+                    if (bestValue < VALUE_TB_WIN_IN_MAX_PLY)
+                        beta = std::min(bestValue + delta, VALUE_INFINITE);
+                    else
+                    {
+                        alpha = bestValue - 1;
+                        beta  = VALUE_INFINITE;
+                    }
                     ++failedHighCnt;
                 }
                 else
@@ -578,10 +598,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
