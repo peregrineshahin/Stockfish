@@ -324,6 +324,13 @@ void Search::Worker::iterative_deepening() {
                 beta  = std::max(alpha + 1, beta);
             }
 
+            if (rootMoves[pvIdx].score != -VALUE_INFINITE
+                && rootMoves[pvIdx].score <= VALUE_TB_LOSS_IN_MAX_PLY)
+            {
+                alpha = rootMoves[pvIdx].score + 1;
+                beta  = std::max(alpha, beta - 1);
+            }
+
             // Adjust optimism based on root move's averageScore (~4 Elo)
             optimism[us]  = 127 * avg / (std::abs(avg) + 86);
             optimism[~us] = -optimism[us];
