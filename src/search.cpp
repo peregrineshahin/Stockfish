@@ -320,8 +320,8 @@ void Search::Worker::iterative_deepening() {
 
             if (rootMoves[pvIdx].score >= VALUE_TB_WIN_IN_MAX_PLY)
             {
-                beta  = VALUE_INFINITE;
                 alpha = rootMoves[pvIdx].score - 1;
+                beta  = std::max(alpha + 1, beta);
             }
 
             // Adjust optimism based on root move's averageScore (~4 Elo)
@@ -365,15 +365,20 @@ void Search::Worker::iterative_deepening() {
                 // re-search, otherwise exit the loop.
                 if (bestValue <= alpha)
                 {
-                    if (bestValue < VALUE_TB_WIN_IN_MAX_PLY)
-                    {
-                        beta  = (alpha + beta) / 2;
-                        alpha = std::max(bestValue - delta, -VALUE_INFINITE);
-                    }
-                    else
+                    beta  = (alpha + beta) / 2;
+                    alpha = std::max(bestValue - delta, -VALUE_INFINITE);
+
+                    if (bestValue >= VALUE_TB_WIN_IN_MAX_PLY)
                     {
                         alpha = bestValue - 1;
-                        beta  = VALUE_INFINITE;
+                        beta  = std::max(beta, alpha + 1);
+                    }
+                    // Since no aborted search happened for this iteration
+                    // a fail-low means that all root-moves have been tried so we can trust the mated score.
+                    else if (bestValue <= VALUE_TB_LOSS_IN_MAX_PLY)
+                    {
+                        beta  = bestValue + 1;
+                        alpha = std::min(alpha, beta - 1);
                     }
 
                     failedHighCnt = 0;
@@ -382,13 +387,15 @@ void Search::Worker::iterative_deepening() {
                 }
                 else if (bestValue >= beta)
                 {
-                    if (bestValue < VALUE_TB_WIN_IN_MAX_PLY)
-                        beta = std::min(bestValue + delta, VALUE_INFINITE);
-                    else
+                    beta = std::min(bestValue + delta, VALUE_INFINITE);
+
+                    // only adjust positive proven wins because a failhigh indicates a possibility for an esacpe from a mated position.
+                    if (bestValue >= VALUE_TB_WIN_IN_MAX_PLY)
                     {
                         alpha = bestValue - 1;
-                        beta  = VALUE_INFINITE;
+                        beta  = std::max(alpha + 1, beta);
                     }
+
                     ++failedHighCnt;
                 }
                 else
