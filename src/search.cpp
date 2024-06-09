@@ -290,7 +290,10 @@ void Search::Worker::iterative_deepening() {
         // Save the last iteration's scores before the first PV line is searched and
         // all the move scores except the (new) PV are set to -VALUE_INFINITE.
         for (RootMove& rm : rootMoves)
+        {
             rm.previousScore = rm.score;
+            rm.previousPv    = rm.pv;
+        }
 
         size_t pvFirst = 0;
         pvLast         = 0;
@@ -579,10 +582,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1951,7 +1953,8 @@ void SearchManager::pv(const Search::Worker&     worker,
         v       = tb ? rootMoves[i].tbScore : v;
 
         std::string pv;
-        for (Move m : rootMoves[i].pv)
+
+        for (Move m : updated ? rootMoves[i].pv : rootMoves[i].previousPv)
             pv += UCIEngine::move(m, pos.is_chess960()) + " ";
 
         // remove last whitespace
