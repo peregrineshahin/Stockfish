@@ -742,9 +742,14 @@ Value Search::Worker::search(
           evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
-        // Static evaluation is saved as it was before adjustment by correction history
-        ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
-                       unadjustedStaticEval, tt.generation());
+        // Assume as if a hypothetical stand pat. happening in qsearch
+        if (ss->staticEval >= beta)
+            ttWriter.write(posKey, ss->staticEval, false, BOUND_LOWER, DEPTH_UNSEARCHED,
+                           Move::none(), unadjustedStaticEval, tt.generation());
+        else
+            // Static evaluation is saved as it was before adjustment by correction history
+            ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
+                           unadjustedStaticEval, tt.generation());
     }
 
     // Use static evaluation difference to improve quiet move ordering (~9 Elo)
