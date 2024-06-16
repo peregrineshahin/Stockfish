@@ -1412,7 +1412,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     assert(PvNode || (alpha == beta - 1));
     assert(depth <= 0);
 
-    Value bestValue;
+    Value bestValue = -VALUE_INFINITE;
 
     // Check if we have an upcoming move that draws by repetition, or if
     // the opponent had an alternative move earlier to this position. (~1 Elo)
@@ -1480,6 +1480,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
+
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
     else
@@ -1496,7 +1497,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
             // ttValue can be used as a better position evaluation (~13 Elo)
             if (std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY
-                && (ttData.bound & (ttData.value > bestValue ? BOUND_LOWER : BOUND_UPPER)))
+                && (ttData.bound & (ttData.value > bestValue ? BOUND_LOWER : BOUND_UPPER))
+                && ttData.value > bestValue)
                 bestValue = ttData.value;
         }
         else
@@ -1506,8 +1508,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
               (ss - 1)->currentMove != Move::null()
                 ? evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
                 : -(ss - 1)->staticEval;
-            ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+            ss->staticEval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+            if (ss->staticEval > bestValue)
+                bestValue = ss->staticEval;
         }
 
         // Stand pat. Return immediately if static value is at least beta
