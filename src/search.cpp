@@ -524,6 +524,9 @@ template<NodeType nodeType>
 Value Search::Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
+    bool  alphaWasBoosted = false;
+    Value drawAlpha;
+
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
@@ -538,7 +541,9 @@ Value Search::Worker::search(
     // if the opponent had an alternative move earlier to this position.
     if (!rootNode && alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(this->nodes);
+        alphaWasBoosted = true;
+        alpha           = value_draw(this->nodes);
+        drawAlpha       = alpha;
         if (alpha >= beta)
             return alpha;
     }
@@ -1390,6 +1395,13 @@ moves_loop:  // When in check, search starts here
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
+    if (alphaWasBoosted && bestValue < drawAlpha)
+    {
+        std::cerr << std::endl << "couldn't even reach the draw alpha" << std::endl;
+        std::cerr << "drawAlpha: " << drawAlpha << std::endl;
+        std::cerr << "bestValue: " << bestValue << std::endl;
+        std::cerr << "alpha: " << alpha << std::endl;
+    }
     return bestValue;
 }
 
