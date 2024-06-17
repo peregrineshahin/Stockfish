@@ -289,7 +289,7 @@ class Worker {
     StateInfo rootState;
     RootMoves rootMoves;
     Depth     rootDepth, completedDepth;
-    Value     rootDelta;
+    Value     rootDelta, rootAlpha, rootBeta;
 
     size_t                    threadIdx;
     NumaReplicatedAccessToken numaAccessToken;

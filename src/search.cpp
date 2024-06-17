@@ -47,7 +47,6 @@
 #include "ucioption.h"
 
 namespace Stockfish {
-
 namespace TB = Tablebases;
 
 using Eval::evaluate;
@@ -333,6 +332,8 @@ void Search::Worker::iterative_deepening() {
                 Depth adjustedDepth =
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
                 rootDelta = beta - alpha;
+                rootAlpha = alpha;
+                rootBeta  = rootBeta;
                 bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
 
                 // Bring the best move to the front. It is critical that sorting
@@ -524,6 +525,8 @@ template<NodeType nodeType>
 Value Search::Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
+    Value oldAlpha = alpha;
+
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
 
@@ -539,6 +542,10 @@ Value Search::Worker::search(
     if (!rootNode && alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
     {
         alpha = value_draw(this->nodes);
+        if (pos.fen().find("1k1KN3/8/4R3/8/8/8/8/8 b - - 24 83") != std::string::npos)
+            std::cerr
+              << "I'm the end of PV fen (1k1KN3/8/4R3/8/8/8/8/8 b - - 24 83) had my alpha boosted, my oldAlpha was: "
+              << oldAlpha << "and new alpha is: " << alpha << std::endl;
         if (alpha >= beta)
             return alpha;
     }
@@ -584,10 +591,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1283,6 +1289,33 @@ moves_loop:  // When in check, search starts here
                 rm.score = -VALUE_INFINITE;
         }
 
+        if (PvNode && rootDepth == 15
+            && (pos.fen().find("1k1KN3/8/4R3/8/8/8/8/8 b - - 24 83") != std::string::npos
+                || pos.fen().find("1k2N3/4K3/4R3/8/8/8/8/8 w - - 17 80") != std::string::npos
+                || pos.fen().find("1k2N3/4K3/4R3/8/8/8/8/8 w - - 17 80") != std::string::npos
+                || pos.fen().find("k3N3/4K3/6R1/8/8/8/8/8 w - - 19 81") != std::string::npos
+                || pos.fen().find("k3N3/4K3/5R2/8/8/8/8/8 b - - 20 81") != std::string::npos
+                || pos.fen().find("4N3/k3K3/5R2/8/8/8/8/8 w - - 21 82") != std::string::npos
+                || pos.fen().find("3KN3/k7/5R2/8/8/8/8/8 b - - 22 82") != std::string::npos
+                || pos.fen().find("1k1KN3/8/5R2/8/8/8/8/8 w - - 23 83") != std::string::npos
+                || pos.fen().find("1k1KN3/8/4R3/8/8/8/8/8 b - - 24 83") != std::string::npos))
+        {
+            std::cerr << "fen: " << pos.fen() << std::endl;
+            std::cerr << "oldAlpha: " << oldAlpha << std::endl;
+            std::cerr << "alpha: " << alpha << std::endl;
+            std::cerr << "beta: " << beta << std::endl;
+            std::cerr << "rootAlpha: " << rootAlpha << std::endl;
+            std::cerr << "rootBeta: " << rootBeta << std::endl;
+            std::cerr << "value: " << value << std::endl;
+            std::cerr << "bestValue: " << bestValue << std::endl;
+            std::cerr << "rootDepth: " << rootDepth << std::endl;
+            std::cerr << "depth: " << depth << std::endl;
+
+            std::cerr << "value > bestValue: " << (value > bestValue) << std::endl;
+            std::cerr << "value <= alpha (faillow): " << (value <= alpha) << std::endl;
+            std::cerr << "value >= beta (failhigh): " << (value >= beta) << std::endl << std::endl;
+        }
+
         if (value > bestValue)
         {
             bestValue = value;
@@ -1403,6 +1436,7 @@ moves_loop:  // When in check, search starts here
 template<NodeType nodeType>
 Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
 
+    Value oldAlpha = alpha;
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
 
@@ -1415,6 +1449,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     if (alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
     {
         alpha = value_draw(this->nodes);
+        if (pos.fen().find("1k1KN3/8/4R3/8/8/8/8/8 b - - 24 83") != std::string::npos)
+            std::cerr
+              << "I'm the end of PV fen (1k1KN3/8/4R3/8/8/8/8/8 b - - 24 83) had my alpha boosted, my oldAlpha was: "
+              << oldAlpha << "and new alpha is: " << alpha << std::endl;
         if (alpha >= beta)
             return alpha;
     }
@@ -1617,6 +1655,34 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         pos.undo_move(move);
 
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
+
+
+        if (PvNode && rootDepth == 15
+            && (pos.fen().find("1k1KN3/8/4R3/8/8/8/8/8 b - - 24 83") != std::string::npos
+                || pos.fen().find("1k2N3/4K3/4R3/8/8/8/8/8 w - - 17 80") != std::string::npos
+                || pos.fen().find("1k2N3/4K3/4R3/8/8/8/8/8 w - - 17 80") != std::string::npos
+                || pos.fen().find("k3N3/4K3/6R1/8/8/8/8/8 w - - 19 81") != std::string::npos
+                || pos.fen().find("k3N3/4K3/5R2/8/8/8/8/8 b - - 20 81") != std::string::npos
+                || pos.fen().find("4N3/k3K3/5R2/8/8/8/8/8 w - - 21 82") != std::string::npos
+                || pos.fen().find("3KN3/k7/5R2/8/8/8/8/8 b - - 22 82") != std::string::npos
+                || pos.fen().find("1k1KN3/8/5R2/8/8/8/8/8 w - - 23 83") != std::string::npos
+                || pos.fen().find("1k1KN3/8/4R3/8/8/8/8/8 b - - 24 83") != std::string::npos))
+        {
+            std::cerr << "fen: " << pos.fen() << std::endl;
+            std::cerr << "oldAlpha: " << oldAlpha << std::endl;
+            std::cerr << "alpha: " << alpha << std::endl;
+            std::cerr << "beta: " << beta << std::endl;
+            std::cerr << "rootAlpha: " << rootAlpha << std::endl;
+            std::cerr << "rootBeta: " << rootBeta << std::endl;
+            std::cerr << "value: " << value << std::endl;
+            std::cerr << "bestValue: " << bestValue << std::endl;
+            std::cerr << "rootDepth: " << rootDepth << std::endl;
+            std::cerr << "depth: " << depth << std::endl;
+
+            std::cerr << "value > bestValue: " << (value > bestValue) << std::endl;
+            std::cerr << "value <= alpha (faillow): " << (value <= alpha) << std::endl;
+            std::cerr << "value >= beta (failhigh): " << (value >= beta) << std::endl << std::endl;
+        }
 
         // Step 8. Check for a new best move
         if (value > bestValue)
