@@ -553,7 +553,7 @@ Value Search::Worker::search(
     ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
     Key   posKey;
-    Move  move, excludedMove, bestMove;
+    Move  move, excludedMove, bestMove, arguablyBestMove;
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta, singularValue;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
@@ -603,7 +603,7 @@ Value Search::Worker::search(
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
-    bestMove             = Move::none();
+    bestMove = arguablyBestMove = Move::none();
     (ss + 2)->killers[0] = (ss + 2)->killers[1] = Move::none();
     (ss + 2)->cutoffCnt                         = 0;
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
@@ -831,7 +831,7 @@ Value Search::Worker::search(
 
     // Step 10. Internal iterative reductions (~9 Elo)
     // For PV nodes without a ttMove, we decrease depth by 3.
-    if (PvNode && !ttData.move)
+    if (PvNode && (!ttData.move || (ttData.bound == BOUND_UPPER && ttData.value < beta - 50)))
         depth -= 3;
 
     // Use qsearch if depth <= 0.
@@ -840,8 +840,9 @@ Value Search::Worker::search(
 
     // For cutNodes, if depth is high enough, decrease depth by 2 if there is no ttMove, or
     // by 1 if there is a ttMove with an upper bound.
-    if (cutNode && depth >= 8 && (!ttData.move || ttData.bound == BOUND_UPPER))
-        depth -= 1 + !ttData.move;
+    if (cutNode && depth >= 8
+        && (!ttData.move || (ttData.bound == BOUND_UPPER && ttData.value < beta - 50)))
+        depth -= 1 + (!ttData.move || (ttData.bound == BOUND_UPPER && ttData.value < beta - 50));
 
     // Step 11. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search returns a value
@@ -1310,6 +1311,8 @@ moves_loop:  // When in check, search starts here
                     alpha = value;  // Update alpha! Always alpha < beta
                 }
             }
+            else
+                arguablyBestMove = move;
         }
 
         // If the move is worse than some previously searched move,
@@ -1376,7 +1379,8 @@ moves_loop:  // When in check, search starts here
                        bestValue >= beta    ? BOUND_LOWER
                        : PvNode && bestMove ? BOUND_EXACT
                                             : BOUND_UPPER,
-                       depth, bestMove, unadjustedStaticEval, tt.generation());
+                       depth, bool(bestMove) || bool(ttData.move) ? bestMove : arguablyBestMove,
+                       unadjustedStaticEval, tt.generation());
 
     // Adjust correction history
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
@@ -1424,7 +1428,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
     Key   posKey;
-    Move  move, bestMove;
+    Move  move, bestMove, arguablyBestMove;
     Value bestValue, value, futilityBase;
     bool  pvHit, givesCheck, capture;
     int   moveCount;
@@ -1438,9 +1442,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     }
 
     Worker* thisThread = this;
-    bestMove           = Move::none();
-    ss->inCheck        = pos.checkers();
-    moveCount          = 0;
+    bestMove = arguablyBestMove = Move::none();
+    ss->inCheck                 = pos.checkers();
+    moveCount                   = 0;
 
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
@@ -1635,6 +1639,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
                 else
                     break;  // Fail high
             }
+            else
+                arguablyBestMove = move;
         }
     }
 
@@ -1653,7 +1659,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // Save gathered info in transposition table
     // Static evaluation is saved as it was before adjustment by correction history
     ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), pvHit,
-                   bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, qsTtDepth, bestMove,
+                   bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, qsTtDepth,
+                   bool(bestMove) || bool(ttData.move) ? bestMove : arguablyBestMove,
                    unadjustedStaticEval, tt.generation());
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
