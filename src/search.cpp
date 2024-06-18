@@ -1149,7 +1149,7 @@ moves_loop:  // When in check, search starts here
                + (!ss->ttPv && move != ttData.move && move != ss->killers[0]);
 
         // Increase reduction if ttMove is a capture (~3 Elo)
-        if (ttCapture)
+        if (ttCapture && ss->lmr)
             r++;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
@@ -1178,7 +1178,9 @@ moves_loop:  // When in check, search starts here
             // std::clamp has been replaced by a more robust implementation.
             Depth d = std::max(1, std::min(newDepth - r, newDepth + 1));
 
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            (ss + 1)->lmr = true;
+            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            (ss + 1)->lmr = false;
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
