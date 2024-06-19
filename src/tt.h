@@ -57,7 +57,16 @@ struct TTData {
 // This is used to make racy writes to the global TT.
 struct TTWriter {
    public:
-    void write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
+    void write(Key     k,
+               Value   v,
+               bool    pv,
+               Bound   b,
+               Depth   d,
+               Move    m,
+               Value   ev,
+               bool    stm,
+               uint8_t pieceCount,
+               uint8_t generation8);
 
    private:
     friend class TranspositionTable;
@@ -79,8 +88,8 @@ class TranspositionTable {
     void
     new_search();  // This must be called at the beginning of each root search to track entry aging
     uint8_t generation() const;  // The current age, used when writing new data to the TT
-    std::tuple<bool, TTData, TTWriter>
-    probe(const Key key) const;  // The main method, whose retvals separate local vs global objects
+    std::tuple<bool, TTData, TTWriter> probe(const Key key, const bool stm, uint8_t pieceCount)
+      const;  // The main method, whose retvals separate local vs global objects
     TTEntry* first_entry(const Key key)
       const;  // This is the hash function; its only external use is memory prefetching.
 
@@ -90,7 +99,7 @@ class TranspositionTable {
     size_t   clusterCount;
     Cluster* table = nullptr;
 
-    uint8_t generation8 = 0;  // Size must be not bigger than TTEntry::genBound8
+    uint8_t generation8 = 0;
 };
 
 }  // namespace Stockfish

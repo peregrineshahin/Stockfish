@@ -566,7 +566,8 @@ Value Search::Worker::search(
     Worker* thisThread = this;
     ss->inCheck        = pos.checkers();
     priorCapture       = pos.captured_piece();
-    Color us           = pos.side_to_move();
+    Color   us         = pos.side_to_move();
+    uint8_t pieceCount = pos.count<ALL_PIECES>(us);
     moveCount = captureCount = quietCount = ss->moveCount = 0;
     bestValue                                             = -VALUE_INFINITE;
     maxValue                                              = VALUE_INFINITE;
@@ -612,7 +613,7 @@ Value Search::Worker::search(
     // Step 4. Transposition table lookup.
     excludedMove                   = ss->excludedMove;
     posKey                         = pos.key();
-    auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
+    auto [ttHit, ttData, ttWriter] = tt.probe(posKey, us, pieceCount);
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
     ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
@@ -686,8 +687,8 @@ Value Search::Worker::search(
                 if (b == BOUND_EXACT || (b == BOUND_LOWER ? value >= beta : value <= alpha))
                 {
                     ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, b,
-                                   std::min(MAX_PLY - 1, depth + 6), Move::none(), VALUE_NONE,
-                                   tt.generation());
+                                   std::min(MAX_PLY - 1, depth + 6), Move::none(), VALUE_NONE, us,
+                                   pieceCount, tt.generation());
 
                     return value;
                 }
@@ -744,7 +745,7 @@ Value Search::Worker::search(
 
         // Static evaluation is saved as it was before adjustment by correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
-                       unadjustedStaticEval, tt.generation());
+                       unadjustedStaticEval, us, pieceCount, tt.generation());
     }
 
     // Use static evaluation difference to improve quiet move ordering (~9 Elo)
@@ -890,7 +891,8 @@ Value Search::Worker::search(
                 {
                     // Save ProbCut data into transposition table
                     ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                                   depth - 3, move, unadjustedStaticEval, tt.generation());
+                                   depth - 3, move, unadjustedStaticEval, us, pieceCount,
+                                   tt.generation());
                     return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY ? value - (probCutBeta - beta)
                                                                      : value;
                 }
@@ -1376,7 +1378,7 @@ moves_loop:  // When in check, search starts here
                        bestValue >= beta    ? BOUND_LOWER
                        : PvNode && bestMove ? BOUND_EXACT
                                             : BOUND_UPPER,
-                       depth, bestMove, unadjustedStaticEval, tt.generation());
+                       depth, bestMove, unadjustedStaticEval, us, pieceCount, tt.generation());
 
     // Adjust correction history
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
@@ -1423,12 +1425,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     StateInfo st;
     ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
-    Key   posKey;
-    Move  move, bestMove;
-    Value bestValue, value, futilityBase;
-    bool  pvHit, givesCheck, capture;
-    int   moveCount;
-    Color us = pos.side_to_move();
+    Key     posKey;
+    Move    move, bestMove;
+    Value   bestValue, value, futilityBase;
+    bool    pvHit, givesCheck, capture;
+    int     moveCount;
+    Color   us         = pos.side_to_move();
+    uint8_t pieceCount = pos.count<ALL_PIECES>(us);
 
     // Step 1. Initialize node
     if (PvNode)
@@ -1461,7 +1464,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     // Step 3. Transposition table lookup
     posKey                         = pos.key();
-    auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
+    auto [ttHit, ttData, ttWriter] = tt.probe(posKey, us, pieceCount);
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
     ttData.move  = ttHit ? ttData.move : Move::none();
@@ -1513,7 +1516,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
                 bestValue = (3 * bestValue + beta) / 4;
             if (!ss->ttHit)
                 ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), false, BOUND_LOWER,
-                               DEPTH_UNSEARCHED, Move::none(), unadjustedStaticEval,
+                               DEPTH_UNSEARCHED, Move::none(), unadjustedStaticEval, us, pieceCount,
                                tt.generation());
             return bestValue;
         }
@@ -1654,7 +1657,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // Static evaluation is saved as it was before adjustment by correction history
     ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), pvHit,
                    bestValue >= beta ? BOUND_LOWER : BOUND_UPPER, qsTtDepth, bestMove,
-                   unadjustedStaticEval, tt.generation());
+                   unadjustedStaticEval, us, pieceCount, tt.generation());
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -2001,7 +2004,11 @@ bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& po
 
     pos.do_move(pv[0], st);
 
-    auto [ttHit, ttData, ttWriter] = tt.probe(pos.key());
+    Color   us         = pos.side_to_move();
+    uint8_t pieceCount = pos.count<ALL_PIECES>(us);
+
+
+    auto [ttHit, ttData, ttWriter] = tt.probe(pos.key(), us, pieceCount);
     if (ttHit)
     {
         if (MoveList<LEGAL>(pos).contains(ttData.move))
