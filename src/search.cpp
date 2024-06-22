@@ -814,7 +814,7 @@ Value Search::Worker::search(
             if (thisThread->nmpMinPly || depth < 16)
             {
                 if (!ss->ttHit)
-                    ttWriter.write(posKey, nullValue, false, BOUND_LOWER, std::max(depth - R, 0),
+                    ttWriter.write(posKey, nullValue, false, BOUND_LOWER, depth - R - 1,
                                    Move::none(), unadjustedStaticEval, tt.generation());
                 return nullValue;
             }
