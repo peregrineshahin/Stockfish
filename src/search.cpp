@@ -812,7 +812,13 @@ Value Search::Worker::search(
         if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
         {
             if (thisThread->nmpMinPly || depth < 16)
+            {
+                if (!ss->ttHit)
+                    ttWriter.write(posKey, nullValue, false, BOUND_LOWER,
+                                   std::max(depth - R + 1, 0), Move::none(), unadjustedStaticEval,
+                                   tt.generation());
                 return nullValue;
+            }
 
             assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
 
