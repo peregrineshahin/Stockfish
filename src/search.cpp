@@ -78,6 +78,15 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
+// Add correctionHistory value to raw staticEval and guarantee evaluation does not hit the tablebase range
+Value to_corrected_tt_value(Value v, const Worker& w, const Position& pos) {
+    if (std::abs(v) >= VALUE_TB_WIN_IN_MAX_PLY)
+        return v;
+    auto cv = w.correctionSearchHistory[pos.side_to_move()][pawn_structure_index<Correction>(pos)];
+    v += cv / 10;
+    return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
+}
+
 // History and stats update bonus, based on depth
 int stat_bonus(Depth d) { return std::clamp(186 * d - 285, 20, 1524); }
 
@@ -505,6 +514,7 @@ void Search::Worker::clear() {
     captureHistory.fill(0);
     pawnHistory.fill(-1193);
     correctionHistory.fill(0);
+    correctionSearchHistory.fill(0);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
@@ -734,7 +744,7 @@ Value Search::Worker::search(
         // ttValue can be used as a better position evaluation (~7 Elo)
         if (ttData.value != VALUE_NONE
             && (ttData.bound & (ttData.value > eval ? BOUND_LOWER : BOUND_UPPER)))
-            eval = ttData.value;
+            eval = to_corrected_tt_value(ttData.value, *thisThread, pos);
     }
     else
     {
@@ -1388,6 +1398,16 @@ moves_loop:  // When in check, search starts here
         thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
     }
 
+
+    if (ttData.value != VALUE_NONE && !ss->inCheck && (!bestMove || !pos.capture(bestMove))
+        && !(bestValue >= beta && bestValue <= ttData.value)
+        && !(!bestMove && bestValue >= ttData.value))
+    {
+        auto bonus = std::clamp(int(bestValue - ttData.value) * depth / 8,
+                                -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+        thisThread->correctionSearchHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
+    }
+
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
     return bestValue;
@@ -1493,7 +1513,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             // ttValue can be used as a better position evaluation (~13 Elo)
             if (std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY
                 && (ttData.bound & (ttData.value > bestValue ? BOUND_LOWER : BOUND_UPPER)))
-                bestValue = ttData.value;
+                bestValue = to_corrected_tt_value(ttData.value, *thisThread, pos);
         }
         else
         {
