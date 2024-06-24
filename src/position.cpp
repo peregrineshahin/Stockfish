@@ -1169,11 +1169,16 @@ bool Position::has_game_cycle(int ply) const {
 
     Key        originalKey = st->key;
     StateInfo* stp         = st->previous;
+    // Key        progressKey = stp->key ^ Zobrist::side;
 
     for (int i = 3; i <= end; i += 2)
     {
-        stp = stp->previous->previous;
+        stp = stp->previous;
+        // progressKey ^= stp->key ^ Zobrist::side;
+        stp = stp->previous;
 
+        // if (originalKey == (progressKey ^ stp->key) || progressKey == Zobrist::side)
+        // {
         Key moveKey = originalKey ^ stp->key;
         if ((j = H1(moveKey), cuckoo[j] == moveKey) || (j = H2(moveKey), cuckoo[j] == moveKey))
         {
@@ -1181,10 +1186,16 @@ bool Position::has_game_cycle(int ply) const {
             Square s1   = move.from_sq();
             Square s2   = move.to_sq();
 
+            if (empty(s1))
+                move = Move(s2, s1);
+
             if (!((between_bb(s1, s2) ^ s2) & pieces()))
             {
                 if (ply > i)
+                {
+                    dbg_hit_on(!pseudo_legal(move) || !legal(move));
                     return true;
+                }
 
                 // For nodes before or at the root, check that the move is a
                 // repetition rather than a move to the current position.
@@ -1198,6 +1209,7 @@ bool Position::has_game_cycle(int ply) const {
                     return true;
             }
         }
+        // }
     }
     return false;
 }
