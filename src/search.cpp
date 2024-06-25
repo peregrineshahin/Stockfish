@@ -1037,6 +1037,10 @@ moves_loop:  // When in check, search starts here
                 if (!pos.see_ge(move, -24 * lmrDepth * lmrDepth))
                     continue;
             }
+
+            if (!capture && (ss - 1)->currentMove == Move ::null() && move.type_of() != CASTLING
+                && type_of(pos.piece_on(move.from_sq())) == KING)
+                continue;
         }
 
         // Step 15. Extensions (~100 Elo)
