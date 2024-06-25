@@ -1006,6 +1006,9 @@ moves_loop:  // When in check, search starts here
             }
             else
             {
+                if ((ss - 1)->currentMove == Move::null() && depth < 5)
+                    continue;
+
                 int history =
                   (*contHist[0])[movedPiece][move.to_sq()]
                   + (*contHist[1])[movedPiece][move.to_sq()]
