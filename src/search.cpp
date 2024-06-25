@@ -921,8 +921,12 @@ moves_loop:  // When in check, search starts here
     Move countermove =
       prevSq != SQ_NONE ? thisThread->counterMoves[pos.piece_on(prevSq)][prevSq] : Move::none();
 
-    MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory, countermove, ss->killers);
+    const Move  defaultKillers[2] = {Move::none(), Move::none()};
+    const Move* emptyKillers      = defaultKillers;
+    MovePicker  mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
+                   contHist, &thisThread->pawnHistory, countermove,
+                  !(depth < 5 && (ss - 1)->currentMove == Move::null()) ? ss->killers
+                                                                         : emptyKillers);
 
     value            = bestValue;
     moveCountPruning = false;
@@ -978,8 +982,9 @@ moves_loop:  // When in check, search starts here
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
             moveCountPruning =
-              moveCount >= futility_move_count(improving, depth)
-                             - (singularBound == BOUND_UPPER && singularValue < alpha - 50);
+              (depth < 5 && (ss - 1)->currentMove == Move::null())
+              || moveCount >= futility_move_count(improving, depth)
+                                - (singularBound == BOUND_UPPER && singularValue < alpha - 50);
 
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r;
