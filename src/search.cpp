@@ -1196,7 +1196,7 @@ moves_loop:  // When in check, search starts here
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
                 // Post LMR continuation history updates (~1 Elo)
-                int bonus = value <= alpha ? -stat_malus(newDepth)
+                int bonus = value <= alpha ? -stat_malus(newDepth + 2 * (d == newDepth - 1))
                           : value >= beta  ? stat_bonus(newDepth)
                                            : 0;
 
