@@ -867,16 +867,14 @@ Value Search::Worker::search(
             {
                 assert(pos.capture_stage(move));
 
-                // Prefetch the TT entry for the resulting position
-                prefetch(tt.first_entry(pos.key_after(move)));
-
-                ss->currentMove = move;
                 ss->continuationHistory =
                   &this
                      ->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
 
                 thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
-                pos.do_move(move, st);
+                // Prefetch the TT entry for the resulting position
+                prefetch(tt.first_entry(pos.do_move(move, st)));
+                ss->currentMove = move;
 
                 // Perform a preliminary qsearch to verify that the move holds
                 value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
@@ -1115,8 +1113,10 @@ moves_loop:  // When in check, search starts here
         // Add extension to new depth
         newDepth += extension;
 
+        // Step 16. Make the move
+        thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         // Speculative prefetch as early as possible
-        prefetch(tt.first_entry(pos.key_after(move)));
+        prefetch(tt.first_entry(pos.do_move(move, st, givesCheck)));
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
@@ -1124,10 +1124,6 @@ moves_loop:  // When in check, search starts here
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
 
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
-
-        // Step 16. Make the move
-        thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
-        pos.do_move(move, st, givesCheck);
 
         // These reduction adjustments have proven non-linear scaling.
         // They are optimized to time controls of 180 + 1.8 and longer so
@@ -1609,18 +1605,16 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
                 continue;
         }
 
-        // Speculative prefetch as early as possible
-        prefetch(tt.first_entry(pos.key_after(move)));
-
+        // Step 7. Make and search the move
         // Update the current move
-        ss->currentMove = move;
         ss->continuationHistory =
           &thisThread
              ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][move.to_sq()];
-
-        // Step 7. Make and search the move
+        // Speculative prefetch as early as possible
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
-        pos.do_move(move, st, givesCheck);
+        prefetch(tt.first_entry(pos.do_move(move, st, givesCheck)));
+        ss->currentMove = move;
+
         value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, depth - 1);
         pos.undo_move(move);
 

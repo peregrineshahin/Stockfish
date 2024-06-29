@@ -136,8 +136,8 @@ class Position {
     Piece captured_piece() const;
 
     // Doing and undoing moves
-    void do_move(Move m, StateInfo& newSt);
-    void do_move(Move m, StateInfo& newSt, bool givesCheck);
+    Key  do_move(Move m, StateInfo& newSt);
+    Key  do_move(Move m, StateInfo& newSt, bool givesCheck);
     void undo_move(Move m);
     void do_null_move(StateInfo& newSt, TranspositionTable& tt);
     void undo_null_move();
@@ -147,7 +147,6 @@ class Position {
 
     // Accessing hash keys
     Key key() const;
-    Key key_after(Move m) const;
     Key material_key() const;
     Key pawn_key() const;
 
@@ -182,7 +181,6 @@ class Position {
     void move_piece(Square from, Square to);
     template<bool Do>
     void do_castling(Color us, Square from, Square& to, Square& rfrom, Square& rto);
-    template<bool AfterMove>
     Key adjust_key50(Key k) const;
 
     // Data members
@@ -286,11 +284,10 @@ inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
 
 inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
 
-inline Key Position::key() const { return adjust_key50<false>(st->key); }
+inline Key Position::key() const { return adjust_key50(st->key); }
 
-template<bool AfterMove>
 inline Key Position::adjust_key50(Key k) const {
-    return st->rule50 < 14 - AfterMove ? k : k ^ make_key((st->rule50 - (14 - AfterMove)) / 8);
+    return st->rule50 < 14 ? k : k ^ make_key((st->rule50 - 14) / 8);
 }
 
 inline Key Position::pawn_key() const { return st->pawnKey; }
@@ -355,7 +352,7 @@ inline void Position::move_piece(Square from, Square to) {
     board[to]   = pc;
 }
 
-inline void Position::do_move(Move m, StateInfo& newSt) { do_move(m, newSt, gives_check(m)); }
+inline Key Position::do_move(Move m, StateInfo& newSt) { return do_move(m, newSt, gives_check(m)); }
 
 inline StateInfo* Position::state() const { return st; }
 
