@@ -536,7 +536,8 @@ Value Search::Worker::search(
 
     // Check if we have an upcoming move that draws by repetition, or
     // if the opponent had an alternative move earlier to this position.
-    if (!rootNode && alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
+    if (!rootNode && alpha < VALUE_DRAW && alpha > VALUE_TB_LOSS_IN_MAX_PLY
+        && pos.has_game_cycle(ss->ply))
     {
         alpha = value_draw(this->nodes);
         if (alpha >= beta)
@@ -557,7 +558,7 @@ Value Search::Worker::search(
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta, singularValue;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
-    bool  capture, moveCountPruning, ttCapture;
+    bool  capture, moveCountPruning, ttCapture, provenLossNotFound;
     Piece movedPiece;
     int   moveCount, captureCount, quietCount;
     Bound singularBound;
@@ -621,6 +622,7 @@ Value Search::Worker::search(
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
+    provenLossNotFound = false;
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -1291,7 +1293,13 @@ moves_loop:  // When in check, search starts here
                    && ss->ply + 2 + ss->ply / 32 >= thisThread->rootDepth
                    && std::abs(value) + 1 < VALUE_TB_WIN_IN_MAX_PLY);
 
-        if (value + inc > bestValue)
+        // if at least one move exceeds the maxValue possible,
+        // truncate later this ply's PV and set bestValue to maxValue.
+        if (PvNode && !provenLossNotFound && value > maxValue && value > bestValue
+            && maxValue <= VALUE_TB_LOSS_IN_MAX_PLY)
+            provenLossNotFound = true;
+
+        if (value + inc > bestValue && value <= maxValue)
         {
             bestValue = value;
 
@@ -1369,8 +1377,14 @@ moves_loop:  // When in check, search starts here
               << stat_bonus(depth) * bonus / 25;
     }
 
-    if (PvNode)
-        bestValue = std::min(bestValue, maxValue);
+    if (PvNode && provenLossNotFound)
+    {
+        assert(maxValue != VALUE_INFINITE);
+        (ss + 1)->pv = pv;
+        ss->pv[0]    = Move::none();
+        bestValue    = maxValue;
+    }
+
 
     // If no good move is found and the previous position was ttPv, then the previous
     // opponent move is probably good and the new position is added to the search tree. (~7 Elo)
@@ -1420,7 +1434,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
     // Check if we have an upcoming move that draws by repetition, or if
     // the opponent had an alternative move earlier to this position. (~1 Elo)
-    if (alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
+    if (alpha < VALUE_DRAW && alpha > VALUE_TB_LOSS_IN_MAX_PLY && pos.has_game_cycle(ss->ply))
     {
         alpha = value_draw(this->nodes);
         if (alpha >= beta)
