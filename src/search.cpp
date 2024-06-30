@@ -606,6 +606,7 @@ Value Search::Worker::search(
     bestMove             = Move::none();
     (ss + 2)->killers[0] = (ss + 2)->killers[1] = Move::none();
     (ss + 2)->cutoffCnt                         = 0;
+    (ss + 2)->cutoffByKiller                    = 0;
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     ss->statScore = 0;
 
@@ -1156,7 +1157,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
-            r++;
+            r += 1 + ((ss + 1)->cutoffByKiller > 2 && !cutNode);
 
         // For first picked move (ttMove) reduce reduction
         // but never allow it to go below 0 (~3 Elo)
@@ -1305,6 +1306,7 @@ moves_loop:  // When in check, search starts here
                 if (value >= beta)
                 {
                     ss->cutoffCnt += 1 + !ttData.move - (extension >= 2);
+                    ss->cutoffByKiller += move == ss->killers[0];
                     assert(value >= beta);  // Fail high
                     break;
                 }
