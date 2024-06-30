@@ -1100,7 +1100,7 @@ moves_loop:  // When in check, search starts here
                     extension = -3;
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high over current beta (~1 Elo)
-                else if (cutNode)
+                else if (cutNode && !ss->ttPv)
                     extension = -2;
             }
 
