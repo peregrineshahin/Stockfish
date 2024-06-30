@@ -834,7 +834,7 @@ Value Search::Worker::search(
     // and the stored depth in the TT is greater than or equal to
     // current search depth, we decrease search depth even further.
     if (PvNode && !ttData.move)
-        depth -= 3 + (ss->ttHit && ttData.depth >= depth);
+        depth -= 3 + (ss->ttHit && ttData.depth >= depth ? 1 + (ttData.value <= alpha) : 0);
 
     // Use qsearch if depth <= 0.
     if (depth <= 0)
