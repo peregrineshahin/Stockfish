@@ -544,8 +544,13 @@ Value Search::Worker::search(
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
 
+    assert(pos.upcoming_repetition(ss->ply, (ss - 1)->currentMove, (ss - 2)->currentMove,
+                                   (ss - 3)->currentMove)
+           == pos.verified_upcoming_repetition(ss->ply));
     // Check if we have an upcoming move that draws by repetition.
-    if (!rootNode && alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    if (!rootNode && alpha < VALUE_DRAW
+        && pos.upcoming_repetition(ss->ply, (ss - 1)->currentMove, (ss - 2)->currentMove,
+                                   (ss - 3)->currentMove))
     {
         alpha = value_draw(this->nodes);
         if (alpha >= beta)
@@ -1455,7 +1460,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     assert(depth <= 0);
 
     // Check if we have an upcoming move that draws by repetition. (~1 Elo)
-    if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    assert(pos.upcoming_repetition(ss->ply, (ss - 1)->currentMove, (ss - 2)->currentMove,
+                                   (ss - 3)->currentMove)
+           == pos.verified_upcoming_repetition(ss->ply));
+    if (alpha < VALUE_DRAW
+        && pos.upcoming_repetition(ss->ply, (ss - 1)->currentMove, (ss - 2)->currentMove,
+                                   (ss - 3)->currentMove))
     {
         alpha = value_draw(this->nodes);
         if (alpha >= beta)

@@ -156,8 +156,9 @@ class Position {
     int   game_ply() const;
     bool  is_chess960() const;
     bool  is_draw(int ply) const;
-    bool  upcoming_repetition(int ply) const;
+    bool  upcoming_repetition(int ply, Move, Move, Move) const;
     bool  has_repeated() const;
+    bool  verified_upcoming_repetition(int ply);
     int   rule50_count() const;
     Value non_pawn_material(Color c) const;
     Value non_pawn_material() const;

@@ -98,19 +98,6 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 }
 
 
-// Implements Marcel van Kervinck's cuckoo algorithm to detect repetition of positions
-// for 3-fold repetition draws. The algorithm uses two hash tables with Zobrist hashes
-// to allow fast detection of recurring positions. For details see:
-// http://web.archive.org/web/20201107002606/https://marcelk.net/2013-04-06/paper/upcoming-rep-v2.pdf
-
-// First and second hash functions for indexing the cuckoo tables
-inline int H1(Key h) { return h & 0x1fff; }
-inline int H2(Key h) { return (h >> 16) & 0x1fff; }
-
-// Cuckoo tables with Zobrist hashes of valid reversible moves, and the moves themselves
-std::array<Key, 8192>  cuckoo;
-std::array<Move, 8192> cuckooMove;
-
 // Initializes at startup the various arrays used to compute hash keys
 void Position::init() {
 
@@ -128,30 +115,6 @@ void Position::init() {
 
     Zobrist::side    = rng.rand<Key>();
     Zobrist::noPawns = rng.rand<Key>();
-
-    // Prepare the cuckoo tables
-    cuckoo.fill(0);
-    cuckooMove.fill(Move::none());
-    [[maybe_unused]] int count = 0;
-    for (Piece pc : Pieces)
-        for (Square s1 = SQ_A1; s1 <= SQ_H8; ++s1)
-            for (Square s2 = Square(s1 + 1); s2 <= SQ_H8; ++s2)
-                if ((type_of(pc) != PAWN) && (attacks_bb(type_of(pc), s1, 0) & s2))
-                {
-                    Move move = Move(s1, s2);
-                    Key  key  = Zobrist::psq[pc][s1] ^ Zobrist::psq[pc][s2] ^ Zobrist::side;
-                    int  i    = H1(key);
-                    while (true)
-                    {
-                        std::swap(cuckoo[i], key);
-                        std::swap(cuckooMove[i], move);
-                        if (move == Move::none())  // Arrived at empty slot?
-                            break;
-                        i = (i == H1(key)) ? H2(key) : H1(key);  // Push victim to alternative slot
-                    }
-                    count++;
-                }
-    assert(count == 3668);
 }
 
 
@@ -1155,53 +1118,29 @@ bool Position::has_repeated() const {
     return false;
 }
 
-
-// Tests if the position has a move which draws by repetition.
-// This function accurately matches the outcome of is_draw() over all legal moves.
-bool Position::upcoming_repetition(int ply) const {
-
-    int j;
-
-    int end = std::min(st->rule50, st->pliesFromNull);
-
-    if (end < 3)
-        return false;
-
-    Key        originalKey = st->key;
-    StateInfo* stp         = st->previous;
-    Key        other       = originalKey ^ stp->key ^ Zobrist::side;
-
-    for (int i = 3; i <= end; i += 2)
+// verification code for has_game_cycle
+bool Position::verified_upcoming_repetition(int ply) {
+    bool      isDraw = false;
+    StateInfo stlocal;
+    for (const auto& m : MoveList<LEGAL>(*this))
     {
-        stp = stp->previous;
-        other ^= stp->key ^ stp->previous->key ^ Zobrist::side;
-        stp = stp->previous;
+        do_move(m, stlocal);
+        // only 3 folds, copied from is_draw
+        isDraw = isDraw || (stlocal.repetition && stlocal.repetition < ply + 1);
+        undo_move(m);
+    };
 
-        if (other != 0)
-            continue;
-
-        Key moveKey = originalKey ^ stp->key;
-        if ((j = H1(moveKey), cuckoo[j] == moveKey) || (j = H2(moveKey), cuckoo[j] == moveKey))
-        {
-            Move   move = cuckooMove[j];
-            Square s1   = move.from_sq();
-            Square s2   = move.to_sq();
-
-            if (!((between_bb(s1, s2) ^ s2) & pieces()))
-            {
-                if (ply > i)
-                    return true;
-
-                // For nodes before or at the root, check that the move is a
-                // repetition rather than a move to the current position.
-                if (stp->repetition)
-                    return true;
-            }
-        }
-    }
-    return false;
+    return isDraw;
 }
 
+// (This function detects a subset of such moves.)
+bool Position::upcoming_repetition(int ply, Move pMove, Move ppMove, Move pppMove) const {
+    return st->rule50 >= 3 && st->pliesFromNull >= 3 && ply > 3
+        && pppMove.from_sq() == pMove.to_sq() && pppMove.to_sq() == pMove.from_sq()
+        && !(between_bb(ppMove.from_sq(), ppMove.to_sq()) & pMove.to_sq())
+        && st->previous->castlingRights == st->previous->previous->previous->castlingRights
+        && st->previous->epSquare == st->previous->previous->previous->epSquare;
+}
 
 // Flips position with the white and black sides reversed. This
 // is only useful for debugging e.g. for finding evaluation symmetry bugs.
