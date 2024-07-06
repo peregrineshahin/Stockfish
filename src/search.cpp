@@ -1183,6 +1183,8 @@ moves_loop:  // When in check, search starts here
         // but never allow it to go below 0 (~3 Elo)
         else if (move == ttData.move)
             r = std::max(0, r - 2);
+        else if ((ss - 1)->moveCount > 8)
+            r--;
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                       + (*contHist[0])[movedPiece][move.to_sq()]
