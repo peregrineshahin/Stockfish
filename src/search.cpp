@@ -563,7 +563,7 @@ Value Search::Worker::search(
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, moveCountPruning, ttCapture;
     Piece movedPiece;
-    int   moveCount, captureCount, quietCount;
+    int   moveCount, captureCount, quietCount, probcutCaptureCount;
     Bound singularBound;
 
     // Step 1. Initialize node
@@ -571,9 +571,9 @@ Value Search::Worker::search(
     ss->inCheck        = pos.checkers();
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
-    moveCount = captureCount = quietCount = ss->moveCount = 0;
-    bestValue                                             = -VALUE_INFINITE;
-    maxValue                                              = VALUE_INFINITE;
+    bestValue          = -VALUE_INFINITE;
+    maxValue           = VALUE_INFINITE;
+    moveCount = captureCount = quietCount = probcutCaptureCount = ss->moveCount = 0;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -864,7 +864,6 @@ Value Search::Worker::search(
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
         Move       probcutCapturesSearched[32];
-        int        probcutCaptureCount = 0;
         Piece      captured;
 
         while ((move = mp.next_move()) != Move::none())
@@ -1173,6 +1172,9 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
+            r++;
+
+        if (probcutCaptureCount)
             r++;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
