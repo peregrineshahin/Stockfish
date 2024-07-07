@@ -919,6 +919,8 @@ Value Search::Worker::search(
                                                                      : value;
                 }
 
+                if (ttCapture)
+                    break;
                 if (probcutCaptureCount < 32)
                     probcutCapturesSearched[probcutCaptureCount++] = move;
             }
