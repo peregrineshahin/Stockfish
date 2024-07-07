@@ -1185,7 +1185,7 @@ moves_loop:  // When in check, search starts here
             r = std::max(0, r - 2);
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                      + (*contHist[0])[movedPiece][move.to_sq()]
+                      + 3 * (*contHist[0])[movedPiece][move.to_sq()] / 2
                       + (*contHist[1])[movedPiece][move.to_sq()] - 4664;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
