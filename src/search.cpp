@@ -863,7 +863,7 @@ Value Search::Worker::search(
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
-        Move       probcutCapturesSearched[2];
+        Move       probcutCapturesSearched[4];
         int        probcutCaptureCount = 0;
         Piece      captured;
 
@@ -918,7 +918,7 @@ Value Search::Worker::search(
                     return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY ? value - (probCutBeta - beta)
                                                                      : value;
                 }
-                if (probcutCaptureCount == 2)
+                if (probcutCaptureCount == 4)
                     break;
                 probcutCapturesSearched[probcutCaptureCount++] = move;
             }
