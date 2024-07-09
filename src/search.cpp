@@ -1443,13 +1443,24 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     assert(PvNode || (alpha == beta - 1));
     assert(depth <= 0);
 
+    bool  rep = false;
+    Value bestValue, futilityBase;
+
+    if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    {
+        bestValue = futilityBase = alpha = value_draw(this->nodes);
+        if (alpha >= beta)
+            return alpha;
+        rep = true;
+    }
+
     Move      pv[MAX_PLY + 1];
     StateInfo st;
     ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
     Key   posKey;
     Move  move, bestMove;
-    Value bestValue, value, futilityBase;
+    Value value;
     bool  pvHit, givesCheck, capture;
     int   moveCount;
     Color us = pos.side_to_move();
@@ -1501,12 +1512,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     // Check if we have an upcoming move that draws by repetition. (~1 Elo)
-    if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
-    {
-        bestValue = futilityBase = alpha = value_draw(this->nodes);
-        if (alpha >= beta)
-            return alpha;
-    }
+    if (rep)
+    {}
     else if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
     else
