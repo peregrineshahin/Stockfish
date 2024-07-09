@@ -539,8 +539,10 @@ Value Search::Worker::search(
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
 
+    Move cuckoMove = Move::none();
     // Check if we have an upcoming move that draws by repetition.
-    if (!rootNode && alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    if (!rootNode && alpha < VALUE_DRAW && (cuckoMove = pos.upcoming_repetition(ss->ply))
+        && cuckoMove != ss->excludedMove)
     {
         alpha = value_draw(this->nodes);
         if (alpha >= beta)

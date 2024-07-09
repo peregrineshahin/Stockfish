@@ -1158,14 +1158,14 @@ bool Position::has_repeated() const {
 
 // Tests if the position has a move which draws by repetition.
 // This function accurately matches the outcome of is_draw() over all legal moves.
-bool Position::upcoming_repetition(int ply) const {
+Move Position::upcoming_repetition(int ply) const {
 
     int j;
 
     int end = std::min(st->rule50, st->pliesFromNull);
 
     if (end < 3)
-        return false;
+        return Move::none();
 
     Key        originalKey = st->key;
     StateInfo* stp         = st->previous;
@@ -1189,17 +1189,20 @@ bool Position::upcoming_repetition(int ply) const {
 
             if (!((between_bb(s1, s2) ^ s2) & pieces()))
             {
+                if (empty(s1))
+                    move = Move(s2, s1);
+
                 if (ply > i)
-                    return true;
+                    return move;
 
                 // For nodes before or at the root, check that the move is a
                 // repetition rather than a move to the current position.
                 if (stp->repetition)
-                    return true;
+                    return move;
             }
         }
     }
-    return false;
+    return Move::none();
 }
 
 
