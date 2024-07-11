@@ -90,7 +90,8 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-                       Move                         km) :
+                       Move                         km,
+                       bool                         l) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
@@ -98,10 +99,12 @@ MovePicker::MovePicker(const Position&              p,
     pawnHistory(ph),
     ttMove(ttm),
     killer{km, 0},
+    mustBeLegal(l),
     depth(d) {
     assert(d > 0);
 
-    stage = (pos.checkers() ? EVASION_TT : MAIN_TT) + !(ttm && pos.pseudo_legal(ttm));
+    stage =
+      (pos.checkers() ? EVASION_TT : MAIN_TT) + !(ttm && (mustBeLegal || pos.pseudo_legal(ttm)));
 }
 
 // Constructor for quiescence search
