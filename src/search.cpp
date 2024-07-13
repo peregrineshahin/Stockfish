@@ -566,6 +566,7 @@ Value Search::Worker::search(
     bool  capture, moveCountPruning, ttCapture;
     Piece movedPiece;
     int   moveCount, captureCount, quietCount;
+    bool  adjustedExtensions = false;
 
     // Step 1. Initialize node
     Worker* thisThread = this;
@@ -1112,6 +1113,8 @@ moves_loop:  // When in check, search starts here
                 // over current beta (~1 Elo)
                 else if (cutNode)
                     extension = -2;
+
+                adjustedExtensions = extension > 0;
             }
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)
@@ -1151,6 +1154,9 @@ moves_loop:  // When in check, search starts here
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
             r--;
+
+        if (adjustedExtensions && move != ttData.move)
+            r++;
 
         // These reduction adjustments have no proven non-linear scaling
 
