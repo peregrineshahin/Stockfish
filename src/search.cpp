@@ -563,7 +563,7 @@ Value Search::Worker::search(
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
-    bool  capture, moveCountPruning, ttCapture;
+    bool  capture, moveCountPruning, ttCapture, ttCaptureCheck;
     Piece movedPiece;
     int   moveCount, captureCount, quietCount;
 
@@ -619,13 +619,14 @@ Value Search::Worker::search(
     posKey                         = pos.key();
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
     // Need further processing of the saved data
-    ss->ttHit    = ttHit;
-    ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
-                 : ttHit    ? ttData.move
-                            : Move::none();
-    ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
-    ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
-    ttCapture    = ttData.move && pos.capture_stage(ttData.move);
+    ss->ttHit      = ttHit;
+    ttData.move    = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
+                   : ttHit    ? ttData.move
+                              : Move::none();
+    ttData.value   = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
+    ss->ttPv       = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
+    ttCapture      = ttData.move && pos.capture_stage(ttData.move);
+    ttCaptureCheck = ttCapture && pos.gives_check(ttData.move);
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -1161,7 +1162,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
-            r++;
+            r += 1 + ttCaptureCheck;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
