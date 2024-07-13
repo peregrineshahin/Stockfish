@@ -860,6 +860,8 @@ Value Search::Worker::search(
         // but we also do a move before it. So effective depth is equal to depth - 3.
         && !(ttData.depth >= depth - 3 && ttData.value != VALUE_NONE && ttData.value < probCutBeta))
     {
+        Value bestValueProbCut = -VALUE_INFINITE;
+
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
@@ -901,6 +903,9 @@ Value Search::Worker::search(
 
             pos.undo_move(move);
 
+            if (value > bestValueProbCut)
+                bestValueProbCut = value;
+
             if (value >= probCutBeta)
             {
                 thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)]
@@ -913,6 +918,11 @@ Value Search::Worker::search(
                                                                  : value;
             }
         }
+
+        if (!ttData.move)
+            // Save ProbCut data into transposition table
+            ttWriter.write(posKey, value_to_tt(bestValueProbCut, ss->ply), ss->ttPv, BOUND_UPPER,
+                           depth - 3, Move::none(), unadjustedStaticEval, tt.generation());
 
         Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
     }
