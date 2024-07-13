@@ -29,6 +29,7 @@
 #include <initializer_list>
 #include <string>
 #include <utility>
+#include <unordered_set>
 #include <chrono>
 #include <iostream>
 #include <ratio>
@@ -708,6 +709,7 @@ Value Search::Worker::search(
         }
     }
 
+    std::unordered_set<Move, Move::MoveHash> probCutMoves;
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
@@ -851,6 +853,7 @@ Value Search::Worker::search(
     // Step 11. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
+
     probCutBeta = beta + 184 - 53 * improving;
     if (!PvNode && depth > 3
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
@@ -876,6 +879,9 @@ Value Search::Worker::search(
                 continue;
 
             assert(pos.capture_stage(move));
+
+            // Save the legal move in the set
+            probCutMoves.insert(move);
 
             movedPiece = pos.moved_piece(move);
             captured   = pos.piece_on(move.to_sq());
@@ -948,8 +954,7 @@ moves_loop:  // When in check, search starts here
         if (move == excludedMove)
             continue;
 
-        // Check for legality
-        if (!pos.legal(move))
+        if (probCutMoves.find(move) == probCutMoves.end() && !pos.legal(move))
             continue;
 
         // At root obey the "searchmoves" option and skip moves not listed in Root
