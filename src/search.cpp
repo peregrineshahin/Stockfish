@@ -50,6 +50,8 @@
 #include "uci.h"
 #include "ucioption.h"
 
+#include <unordered_set>
+
 namespace Stockfish {
 
 namespace TB = Tablebases;
@@ -708,6 +710,8 @@ Value Search::Worker::search(
         }
     }
 
+    std::unordered_set<uint16_t> probCutMoves;
+
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
@@ -861,7 +865,6 @@ Value Search::Worker::search(
         && !(ttData.depth >= depth - 3 && ttData.value != VALUE_NONE && ttData.value < probCutBeta))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
-
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
         Piece      captured;
 
@@ -876,6 +879,8 @@ Value Search::Worker::search(
                 continue;
 
             assert(pos.capture_stage(move));
+
+            probCutMoves.insert(move.raw());
 
             movedPiece = pos.moved_piece(move);
             captured   = pos.piece_on(move.to_sq());
@@ -1161,6 +1166,9 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
+            r++;
+
+        if (probCutMoves.find(move.raw()) != probCutMoves.end())
             r++;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
