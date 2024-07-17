@@ -166,7 +166,8 @@ void MovePicker::score() {
             m.value += (*continuationHistory[3])[pc][to];
             m.value += (*continuationHistory[5])[pc][to];
 
-            m.value += (m == killer) * 65536;
+            if (m == killer)
+                m.value = std::max(m.value + 65536, -7997);
 
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;
