@@ -160,7 +160,8 @@ class MovePicker {
                const CapturePieceToHistory*,
                const PieceToHistory**,
                const PawnHistory*,
-               Move killer = Move::none());
+               Move killer       = Move::none(),
+               int  killerCutCnt = 0);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move(bool skipQuiets = false);
 
@@ -180,6 +181,7 @@ class MovePicker {
     Move                         ttMove, killer;
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int                          stage;
+    int                          killerCutCnt;
     int                          threshold;
     Depth                        depth;
     ExtMove                      moves[MAX_MOVES];

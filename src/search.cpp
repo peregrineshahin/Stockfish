@@ -608,9 +608,10 @@ Value Search::Worker::search(
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
-    bestMove            = Move::none();
-    (ss + 1)->killer    = Move::none();
-    (ss + 2)->cutoffCnt = 0;
+    bestMove               = Move::none();
+    (ss + 2)->killer       = Move::none();
+    (ss + 2)->killerCutCnt = 0;
+    (ss + 2)->cutoffCnt    = 0;
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     ss->statScore = 0;
 
@@ -931,7 +932,7 @@ moves_loop:  // When in check, search starts here
 
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory, ss->killer);
+                  contHist, &thisThread->pawnHistory, ss->killer, ss->killerCutCnt);
 
     value = bestValue;
 
@@ -1834,6 +1835,10 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 void update_killer(Stack* ss, Move move) {
 
     // Update killers
+    if (ss->killer == move)
+        ss->killerCutCnt++;
+    else
+        ss->killerCutCnt = 0;
     ss->killer = move;
 }
 
