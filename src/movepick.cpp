@@ -89,7 +89,8 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-                       Move                         km) :
+                       Move                         km,
+                       int                          kccnt) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
@@ -97,6 +98,7 @@ MovePicker::MovePicker(const Position&              p,
     pawnHistory(ph),
     ttMove(ttm),
     killer(km),
+    killerCutCnt(kccnt),
     depth(d) {
 
     if (pos.checkers())
@@ -166,7 +168,7 @@ void MovePicker::score() {
             m.value += (*continuationHistory[3])[pc][to];
             m.value += (*continuationHistory[5])[pc][to];
 
-            m.value += (m == killer) * 65536;
+            m.value += (m == killer) * (killerCutCnt + 1) * 43690;
 
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;
