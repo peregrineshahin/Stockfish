@@ -1109,7 +1109,7 @@ moves_loop:  // When in check, search starts here
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high
                 // over current beta (~1 Elo)
-                else if (cutNode)
+                else if (cutNode && !(ttData.depth >= depth && ss->ttPv))
                     extension = -2;
             }
 
@@ -1154,9 +1154,8 @@ moves_loop:  // When in check, search starts here
         // These reduction adjustments have no proven non-linear scaling
 
         // Increase reduction for cut nodes (~4 Elo)
-        if (cutNode)
-            r += 2 - (ttData.depth >= depth && ss->ttPv)
-               + (!ss->ttPv && move != ttData.move && move != ss->killer);
+        if (cutNode && !(ttData.depth >= depth && ss->ttPv))
+            r += 2 + (!ss->ttPv && move != ttData.move && move != ss->killer);
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
