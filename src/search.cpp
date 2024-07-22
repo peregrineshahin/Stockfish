@@ -845,11 +845,20 @@ Value Search::Worker::search(
     if (cutNode && depth >= 7 && (!ttData.move || ttData.bound == BOUND_UPPER))
         depth -= 1 + !ttData.move;
 
+
+moves_loop:  // When in check, search starts here
+
+    // Step 12. A small Probcut idea (~4 Elo)
+    probCutBeta = beta + 390;
+    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
+        && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
+        return probCutBeta;
+
     // Step 11. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 184 - 53 * improving;
-    if (!PvNode && depth > 3
+    if (!PvNode && !ss->inCheck && depth > 3
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there and in further interactions with transposition table cutoff
@@ -913,14 +922,6 @@ Value Search::Worker::search(
 
         Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
     }
-
-moves_loop:  // When in check, search starts here
-
-    // Step 12. A small Probcut idea (~4 Elo)
-    probCutBeta = beta + 390;
-    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
-        && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
-        return probCutBeta;
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
                                         (ss - 2)->continuationHistory,
