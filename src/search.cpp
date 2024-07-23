@@ -1190,6 +1190,13 @@ moves_loop:  // When in check, search starts here
 
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
+            if (d >= depth - 2 && value >= probCutBeta && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
+                && std::abs(probCutBeta) < VALUE_TB_WIN_IN_MAX_PLY)
+            {
+                pos.undo_move(move);
+                return probCutBeta;
+            }
+
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
             {
