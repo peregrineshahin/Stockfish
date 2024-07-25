@@ -1461,7 +1461,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     ss->ttHit   = ttHit;
     ttData.move = ttHit ? ttData.move : Move::none();
 
-    if (PvNode && depth == 0 && ttData.move)
+    if (PvNode && ttData.move)
         return search<PV>(pos, ss, alpha, beta, 1, false);
 
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
