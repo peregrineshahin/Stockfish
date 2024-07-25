@@ -1458,8 +1458,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     posKey                         = pos.key();
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
     // Need further processing of the saved data
-    ss->ttHit    = ttHit;
-    ttData.move  = ttHit ? ttData.move : Move::none();
+    ss->ttHit   = ttHit;
+    ttData.move = ttHit ? ttData.move : Move::none();
+
+    if (PvNode && depth == 0 && ttData.move)
+        return search<PV>(pos, ss, alpha, beta, 1, false);
+
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     pvHit        = ttHit && ttData.is_pv;
 
