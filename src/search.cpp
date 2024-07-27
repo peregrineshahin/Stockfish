@@ -957,6 +957,13 @@ moves_loop:  // When in check, search starts here
 
         Depth r = reduction(improving, depth, moveCount, delta);
 
+
+        const bool allowPruningCapture =
+          !PvNode || move.to_sq() != prevSq
+          || thisThread
+                 ->captureHistory[movedPiece][move.to_sq()][type_of(pos.piece_on(move.to_sq()))]
+               <= 3994;
+
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
         if (!rootNode && pos.non_pawn_material(us) && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
@@ -973,19 +980,22 @@ moves_loop:  // When in check, search starts here
                 int   captHist =
                   thisThread->captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)];
 
-                // Futility pruning for captures (~2 Elo)
-                if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
+                if (allowPruningCapture)
                 {
-                    Value futilityValue = ss->staticEval + 285 + 251 * lmrDepth
-                                        + PieceValue[capturedPiece] + captHist / 7;
-                    if (futilityValue <= alpha)
+                    // Futility pruning for captures (~2 Elo)
+                    if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
+                    {
+                        Value futilityValue = ss->staticEval + 285 + 251 * lmrDepth
+                                            + PieceValue[capturedPiece] + captHist / 7;
+                        if (futilityValue <= alpha)
+                            continue;
+                    }
+
+                    // SEE based pruning for captures and checks (~11 Elo)
+                    int seeHist = std::clamp(captHist / 32, -182 * depth, 166 * depth);
+                    if (!pos.see_ge(move, -168 * depth - seeHist))
                         continue;
                 }
-
-                // SEE based pruning for captures and checks (~11 Elo)
-                int seeHist = std::clamp(captHist / 32, -182 * depth, 166 * depth);
-                if (!pos.see_ge(move, -168 * depth - seeHist))
-                    continue;
             }
             else
             {
@@ -1090,10 +1100,7 @@ moves_loop:  // When in check, search starts here
             }
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)
-            else if (PvNode && move.to_sq() == prevSq
-                     && thisThread->captureHistory[movedPiece][move.to_sq()]
-                                                  [type_of(pos.piece_on(move.to_sq()))]
-                          > 3994)
+            else if (!allowPruningCapture)
                 extension = 1;
         }
 
