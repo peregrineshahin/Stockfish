@@ -1087,7 +1087,7 @@ moves_loop:  // When in check, search starts here
                 // over current beta (~1 Elo)
                 else if (cutNode)
                     extension = -2;
-                else if (!PvNode && (ss + 1)->cutoffCnt > 4)
+                else if (!PvNode && (ss + 1)->cutoffCnt > 3)
                     extension = -2;
             }
 
