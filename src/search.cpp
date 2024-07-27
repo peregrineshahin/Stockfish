@@ -1455,8 +1455,8 @@ Value Search::Worker::qsearch(
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
-    cutNode = cutNode && !PvNode;
-    Depth movePickerDepth = !cutNode ? DEPTH_QS_CHECKS : DEPTH_QS_NORMAL;
+    cutNode               = cutNode && !PvNode;
+    Depth movePickerDepth = cutNode ? DEPTH_QS_CHECKS : DEPTH_QS_NORMAL;
 
     // Step 3. Transposition table lookup
     posKey                         = pos.key();
