@@ -1139,7 +1139,7 @@ moves_loop:  // When in check, search starts here
 
         // For first picked move (ttMove) reduce reduction, but never allow
         // reduction to go below 0 (~3 Elo)
-        else if (move == ttData.move)
+        else if (moveCount == 1)
             r = std::max(0, r - 2);
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
