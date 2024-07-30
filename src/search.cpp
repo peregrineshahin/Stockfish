@@ -532,7 +532,7 @@ Value Search::Worker::search(
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta;
-    bool  givesCheck, improving, priorCapture, opponentWorsening;
+    bool  givesCheck, improving, priorCapture, opponentWorsening, moveMightBeExact;
     bool  capture, ttCapture;
     Piece movedPiece;
 
@@ -547,6 +547,7 @@ Value Search::Worker::search(
     ss->moveCount      = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
+    moveMightBeExact   = false;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -1287,6 +1288,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value >= beta)
                 {
+                    moveMightBeExact = false;
                     ss->cutoffCnt += 1 + !ttData.move - (extension >= 2);
                     assert(value >= beta);  // Fail high
                     break;
@@ -1295,7 +1297,10 @@ moves_loop:  // When in check, search starts here
                 {
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
                     if (depth > 2 && depth < 14 && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+                    {
+                        moveMightBeExact = true;
                         depth -= 2;
+                    }
 
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta
@@ -1372,7 +1377,8 @@ moves_loop:  // When in check, search starts here
                        bestValue >= beta    ? BOUND_LOWER
                        : PvNode && bestMove ? BOUND_EXACT
                                             : BOUND_UPPER,
-                       depth, bestMove, unadjustedStaticEval, tt.generation());
+                       depth + 2 * moveMightBeExact, bestMove, unadjustedStaticEval,
+                       tt.generation());
 
     // Adjust correction history
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
