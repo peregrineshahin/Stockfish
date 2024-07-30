@@ -910,6 +910,7 @@ moves_loop:  // When in check, search starts here
     int  moveCount        = 0;
     bool moveCountPruning = false;
 
+    int firstMoveR = 0;
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move(moveCountPruning)) != Move::none())
@@ -1148,6 +1149,11 @@ moves_loop:  // When in check, search starts here
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 10898;
+
+        if (moveCount == 1)
+            firstMoveR = r;
+        else
+            r = std::max(firstMoveR, r);
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1 + (rootNode && depth < 10))
