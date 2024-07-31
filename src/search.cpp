@@ -1276,8 +1276,6 @@ moves_loop:  // When in check, search starts here
 
         if (value + inc > bestValue)
         {
-            bestValue = value;
-
             if (value + inc > alpha)
             {
                 bestMove = move;
@@ -1288,6 +1286,10 @@ moves_loop:  // When in check, search starts here
                 if (value >= beta)
                 {
                     ss->cutoffCnt += 1 + !ttData.move - (extension >= 2);
+                    if (PvNode && depth > 2 && depth < 14 && bestValue < alpha
+                        && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+                        depth -= 2;
+                    bestValue = value;
                     assert(value >= beta);  // Fail high
                     break;
                 }
@@ -1301,6 +1303,7 @@ moves_loop:  // When in check, search starts here
                     alpha = value;  // Update alpha! Always alpha < beta
                 }
             }
+            bestValue = value;
         }
 
         // If the move is worse than some previously searched move,
