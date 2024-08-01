@@ -1632,13 +1632,18 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
     }
 
-    // Step 9. Check for mate
-    // All legal moves have been searched. A special case: if we are
-    // in check and no legal moves were found, it is checkmate.
-    if (ss->inCheck && bestValue == -VALUE_INFINITE)
+    // Step 9. Check for mate and stalemate
+    // All legal moves have been searched and if there are no legal moves, it
+    // must be a mate or a stalemate.
+    if (!moveCount)
     {
-        assert(!MoveList<LEGAL>(pos).size());
-        return mated_in(ss->ply);  // Plies to mate from the root
+        if (ss->inCheck)
+        {
+            assert(!MoveList<LEGAL>(pos).size());
+            return mated_in(ss->ply);  // Plies to mate from the root
+        }
+        else if (std::abs(bestValue) > 250 && !MoveList<LEGAL>(pos).size())
+            return VALUE_DRAW;
     }
 
     if (std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY && bestValue >= beta)
