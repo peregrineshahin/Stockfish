@@ -1636,11 +1636,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             assert(!MoveList<LEGAL>(pos).size());
             return mated_in(ss->ply);  // Plies to mate from the root
         }
-        else
-        {
-            if (!MoveList<LEGAL>(pos).size())
-                return VALUE_DRAW;
-        }
+        else if (std::abs(bestValue) > 500 && !MoveList<LEGAL>(pos).size())
+            return VALUE_DRAW;
     }
 
     if (std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY && bestValue >= beta)
