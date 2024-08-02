@@ -1142,9 +1142,11 @@ moves_loop:  // When in check, search starts here
         else if (move == ttData.move)
             r = std::max(0, r - 2);
 
-        ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                      + (*contHist[0])[movedPiece][move.to_sq()]
-                      + (*contHist[1])[movedPiece][move.to_sq()] - 4664;
+        ss->statScore =
+          2 * thisThread->mainHistory[us][move.from_to()]
+          - (prevSq != SQ_NONE ? thisThread->mainHistory[~us][(ss - 1)->currentMove.from_to()] : 0)
+          + (*contHist[0])[movedPiece][move.to_sq()] + (*contHist[1])[movedPiece][move.to_sq()]
+          - 4664;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 10898;
