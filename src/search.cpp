@@ -586,8 +586,9 @@ Value Search::Worker::search(
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
-    bestMove            = Move::none();
-    (ss + 2)->cutoffCnt = 0;
+    ss->razoring = false;
+    bestMove = ss->razoringMove = Move::none();
+    (ss + 2)->cutoffCnt         = 0;
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     ss->statScore = 0;
 
@@ -752,7 +753,9 @@ Value Search::Worker::search(
     // search suggests we cannot exceed alpha, return a speculative fail low.
     if (eval < alpha - 494 - 290 * depth * depth)
     {
-        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+        ss->razoring = true;
+        value        = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+        ss->razoring = false;
         if (value < alpha && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
             return value;
     }
@@ -1138,6 +1141,9 @@ moves_loop:  // When in check, search starts here
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
             r++;
+
+        if (ss->razoringMove && move == ss->razoringMove)
+            r--;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
@@ -1627,7 +1633,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 if (value < beta)  // Update alpha here!
                     alpha = value;
                 else
+                {
+                    if (ss->razoring)
+                        ss->razoringMove = bestMove;
                     break;  // Fail high
+                }
             }
         }
     }

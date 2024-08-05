@@ -66,12 +66,14 @@ struct Stack {
     int             ply;
     Move            currentMove;
     Move            excludedMove;
+    Move            razoringMove;
     Value           staticEval;
     int             statScore;
     int             moveCount;
     bool            inCheck;
     bool            ttPv;
     bool            ttHit;
+    bool            razoring;
     int             cutoffCnt;
 };
 
