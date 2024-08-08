@@ -985,7 +985,24 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // SEE based pruning for captures and checks (~11 Elo)
-                int seeHist = std::clamp(captHist / 32, -182 * depth, 166 * depth);
+                int  seeHist          = std::clamp(captHist / 32, -182 * depth, 166 * depth);
+                auto extMove          = mp.current();
+                int  captThreshold    = -168 * depth - seeHist;
+                int  extMoveThreshold = -extMove->value / 18;
+
+                if (extMove && ((mp.stage == GOOD_CAPTURE && extMoveThreshold > captThreshold)))
+                    dbg_hit_on(!pos.see_ge(move, captThreshold), 0);
+
+                if (extMove && ((mp.stage == BAD_CAPTURE && extMoveThreshold < captThreshold)))
+                    dbg_hit_on(pos.see_ge(move, captThreshold), 1);
+
+                // Hit #0: Total 16445 Hits 0 Hit Rate (%) 0
+                // Hit #1: Total 14913 Hits 0 Hit Rate (%) 0
+
+                // ===========================
+                // Total time (ms) : 3730
+                // Nodes searched  : 1277466
+
                 if (!pos.see_ge(move, -168 * depth - seeHist))
                     continue;
             }
