@@ -1099,11 +1099,11 @@ moves_loop:  // When in check, search starts here
                 extension = 1;
         }
 
-        // Add extension to new depth
-        newDepth += extension;
-
         // Speculative prefetch as early as possible
         prefetch(tt.first_entry(pos.key_after(move)));
+
+        // Add extension to new depth
+        newDepth += extension;
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
