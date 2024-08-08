@@ -985,8 +985,14 @@ moves_loop:  // When in check, search starts here
                 }
 
                 // SEE based pruning for captures and checks (~11 Elo)
-                int seeHist = std::clamp(captHist / 32, -182 * depth, 166 * depth);
-                if (!pos.see_ge(move, -168 * depth - seeHist))
+                int captThreshold =
+                  -168 * depth - std::clamp(captHist / 32, -182 * depth, 166 * depth);
+                int extMoveThreshold = -mp.currentScore() / 18;
+
+                if (mp.currentStage() == GOOD_CAPTURE && extMoveThreshold >= captThreshold)
+                {}
+                else if ((mp.currentStage() == BAD_CAPTURE && extMoveThreshold <= captThreshold)
+                         || !pos.see_ge(move, captThreshold))
                     continue;
             }
             else
