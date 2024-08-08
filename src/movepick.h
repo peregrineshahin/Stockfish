@@ -34,6 +34,32 @@
 
 namespace Stockfish {
 
+enum Stages {
+    // generate main search moves
+    MAIN_TT,
+    CAPTURE_INIT,
+    GOOD_CAPTURE,
+    QUIET_INIT,
+    GOOD_QUIET,
+    BAD_CAPTURE,
+    BAD_QUIET,
+
+    // generate evasion moves
+    EVASION_TT,
+    EVASION_INIT,
+    EVASION,
+
+    // generate probcut moves
+    PROBCUT_TT,
+    PROBCUT_INIT,
+    PROBCUT,
+
+    // generate qsearch moves
+    QSEARCH_TT,
+    QCAPTURE_INIT,
+    QCAPTURE
+};
+
 constexpr int PAWN_HISTORY_SIZE        = 512;    // has to be a power of 2
 constexpr int CORRECTION_HISTORY_SIZE  = 16384;  // has to be a power of 2
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
@@ -162,6 +188,8 @@ class MovePicker {
                const PawnHistory*);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move(bool skipQuiets = false);
+    int  captureThreshold() { return capThreshold; }
+    int  currentStage() { return stage; }
 
    private:
     template<PickType T, typename Pred>
@@ -180,6 +208,7 @@ class MovePicker {
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int                          stage;
     int                          threshold;
+    int                          capThreshold;
     Depth                        depth;
     ExtMove                      moves[MAX_MOVES];
 };
