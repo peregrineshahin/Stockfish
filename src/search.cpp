@@ -1215,8 +1215,11 @@ moves_loop:  // When in check, search starts here
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
-                if (newDepth > d)
+                if (newDepth - (d == newDepth - 1 && thisThread->lmrAccuracy.accuracy() >= 90) > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+
+                if (d == newDepth - 1)
+                    thisThread->lmrAccuracy.update(value > alpha);
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = 2 * (value >= beta) * stat_bonus(newDepth);
