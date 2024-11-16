@@ -715,12 +715,7 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
-    {
-        // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
-        improving             = false;
-        goto moves_loop;
-    }
     else if (excludedMove)
     {
         // Providing the hint that this node's accumulator will be used often
@@ -776,6 +771,19 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
+    // Internal iterative reductions (~9 Elo)
+    // For PV nodes without a ttMove, we decrease depth.
+    if (PvNode && !ttData.move)
+        depth -= 3;
+
+    // Use qsearch if depth <= 0
+    if (depth <= 0)
+        return qsearch<PV>(pos, ss, alpha, beta);
+
+    // Skip early pruning when in check or ttPv
+    if (ss->inCheck || ss->ttPv)
+        goto moves_loop;
+
     // Step 7. Razoring (~1 Elo)
     // If eval is really low, check with qsearch if we can exceed alpha. If the
     // search suggests we cannot exceed alpha, return a speculative fail low.
@@ -788,7 +796,7 @@ Value Search::Worker::search(
 
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 14
+    if (depth < 14
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 290
              >= beta
@@ -838,15 +846,6 @@ Value Search::Worker::search(
                 return nullValue;
         }
     }
-
-    // Step 10. Internal iterative reductions (~9 Elo)
-    // For PV nodes without a ttMove, we decrease depth.
-    if (PvNode && !ttData.move)
-        depth -= 3;
-
-    // Use qsearch if depth <= 0
-    if (depth <= 0)
-        return qsearch<PV>(pos, ss, alpha, beta);
 
     // For cutNodes, if depth is high enough, decrease depth by 2 if there is no ttMove,
     // or by 1 if there is a ttMove with an upper bound.
