@@ -259,6 +259,19 @@ class NullSearchManager: public ISearchManager {
 };
 
 
+struct LMRaccuracy {
+    int alignmentCount = 0;
+    int totalCount     = 0;
+
+    void update(bool isAligned) {
+        ++totalCount;
+        if (isAligned)
+            ++alignmentCount;
+    }
+
+    int accuracy() const { return totalCount > 0 ? (alignmentCount * 100) / totalCount : 0; }
+};
+
 // Search::Worker is the class that does the actual search.
 // It is instantiated once per thread, and it is responsible for keeping track
 // of the search history, and storing data required for the search.
@@ -279,6 +292,7 @@ class Worker {
     void ensure_network_replicated();
 
     // Public because they need to be updatable by the stats
+    LMRaccuracy      lmrAccuracy;
     ButterflyHistory mainHistory;
     LowPlyHistory    lowPlyHistory;
 

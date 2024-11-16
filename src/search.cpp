@@ -1167,7 +1167,8 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
-            r += 2518 - (ttData.depth >= depth && ss->ttPv) * 991;
+            r +=
+              2518 - (ttData.depth >= depth && ss->ttPv) * thisThread->lmrAccuracy.accuracy() * 10;
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && !capture)
@@ -1217,6 +1218,9 @@ moves_loop:  // When in check, search starts here
 
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+
+                if (cutNode)
+                    thisThread->lmrAccuracy.update(value >= beta);
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = 2 * (value >= beta) * stat_bonus(newDepth);
