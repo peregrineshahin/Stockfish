@@ -714,7 +714,7 @@ Value Search::Worker::search(
 
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
-    if (ss->inCheck)
+    if (ss->inCheck || (ss->ttPv && !PvNode))
     {
         // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
@@ -788,7 +788,7 @@ Value Search::Worker::search(
 
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 14
+    if (!PvNode && depth < 14
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 290
              >= beta
