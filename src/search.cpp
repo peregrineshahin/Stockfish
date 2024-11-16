@@ -1150,6 +1150,8 @@ moves_loop:  // When in check, search starts here
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
 
+        bool manualReductions[REDUCTION_CONDITIONS_NB] = {false};
+
         // These reduction adjustments have proven non-linear scaling.
         // They are optimized to time controls of 180 + 1.8 and longer,
         // so changing them or adding conditions that are similar requires
@@ -1167,15 +1169,25 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
-            r += 2518 - (ttData.depth >= depth && ss->ttPv) * 991;
+        {
+            r += 1618 + thisThread->lmrReductionTrackers[CUT_NODE].accuracy()
+               - (ttData.depth >= depth && ss->ttPv) * 991;
+            manualReductions[CUT_NODE] = true;
+        }
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && !capture)
-            r += 1043 + (depth < 8) * 999;
+        {
+            r += thisThread->lmrReductionTrackers[TT_CAPTURE].accuracy() + (depth < 8) * 999;
+            manualReductions[TT_CAPTURE] = true;
+        }
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
-            r += 938 + allNode * 960;
+        {
+            r += thisThread->lmrReductionTrackers[CUTOFF_CNT].accuracy() + allNode * 960;
+            manualReductions[CUTOFF_CNT] = true;
+        }
 
         // For first picked move (ttMove) reduce reduction (~3 Elo)
         else if (move == ttData.move)
@@ -1217,6 +1229,10 @@ moves_loop:  // When in check, search starts here
 
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+
+                for (int i = 0; i < REDUCTION_CONDITIONS_NB; ++i)
+                    if (manualReductions[i])
+                        thisThread->lmrReductionTrackers[i].update(value >= beta);
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = 2 * (value >= beta) * stat_bonus(newDepth);
