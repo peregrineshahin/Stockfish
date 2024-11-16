@@ -715,12 +715,7 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
-    {
-        // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
-        improving             = false;
-        goto moves_loop;
-    }
     else if (excludedMove)
     {
         // Providing the hint that this node's accumulator will be used often
@@ -776,6 +771,10 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
+    // Skip early pruning when in check or ttPv
+    if (ss->inCheck || (ss->ttPv && !PvNode))
+        goto moves_loop;
+
     // Step 7. Razoring (~1 Elo)
     // If eval is really low, check with qsearch if we can exceed alpha. If the
     // search suggests we cannot exceed alpha, return a speculative fail low.
@@ -788,7 +787,7 @@ Value Search::Worker::search(
 
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 14
+    if (!PvNode && depth < 14
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 290
              >= beta
