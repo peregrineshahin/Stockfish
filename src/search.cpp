@@ -1389,7 +1389,7 @@ moves_loop:  // When in check, search starts here
     else if (!priorCapture && prevSq != SQ_NONE)
     {
         int bonus =
-          (117 * (depth > 5) + 39 * !allNode + 60 * changedFailhigh + 168 * ((ss - 1)->moveCount > 8)
+          (117 * (depth > 5) + 39 * !allNode + 120 * changedFailhigh + 168 * ((ss - 1)->moveCount > 8)
            + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
            + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83));
 
