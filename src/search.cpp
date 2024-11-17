@@ -948,6 +948,8 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    bool changedFailhigh = false;
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
@@ -1247,7 +1249,10 @@ moves_loop:  // When in check, search starts here
             if (move == ttData.move && ss->ply <= thisThread->rootDepth * 2)
                 newDepth = std::max(newDepth, 1);
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            bool fh = value >= beta;
+            value   = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            if (fh && value < beta)
+                changedFailhigh = true;
         }
 
         // Step 19. Undo move
@@ -1383,9 +1388,10 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus = (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
-                     + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
-                     + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83));
+        int bonus =
+          (117 * (depth > 5) + 39 * !allNode + 60 * changedFailhigh + 168 * ((ss - 1)->moveCount > 8)
+           + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
+           + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83));
 
         // Proportional to "how much damage we have to undo"
         bonus += std::min(-(ss - 1)->statScore / 113, 300);
