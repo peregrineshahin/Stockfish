@@ -1136,7 +1136,8 @@ moves_loop:  // When in check, search starts here
         newDepth += extension;
 
         // Speculative prefetch as early as possible
-        prefetch(tt.first_entry(pos.key_after(move)));
+        if (extension < 1)
+            prefetch(tt.first_entry(pos.key_after(move)));
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
@@ -1413,7 +1414,13 @@ moves_loop:  // When in check, search starts here
     // If no good move is found and the previous position was ttPv, then the previous
     // opponent move is probably good and the new position is added to the search tree. (~7 Elo)
     if (bestValue <= alpha)
+    {
         ss->ttPv = ss->ttPv || ((ss - 1)->ttPv && depth > 3);
+        // Speculative prefetch as early as possible if the excludedMove is singular
+        if (excludedMove)
+            prefetch(tt.first_entry(pos.key_after(excludedMove)));
+    }
+
 
     // Write gathered information in transposition table. Note that the
     // static evaluation is saved as it was before correction history.
