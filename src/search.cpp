@@ -1217,11 +1217,11 @@ moves_loop:  // When in check, search starts here
 
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
-
-                // Post LMR continuation history updates (~1 Elo)
-                int bonus = 2 * (value >= beta) * stat_bonus(newDepth);
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
             }
+            // Post LMR continuation history updates (~1 Elo)
+            if (value >= beta)
+                update_continuation_histories(ss, movedPiece, move.to_sq(),
+                                              2 * stat_bonus(newDepth));
         }
 
         // Step 18. Full-depth search when LMR is skipped
