@@ -1222,8 +1222,7 @@ moves_loop:  // When in check, search starts here
                 if (value >= beta)
                 {
                     int factor = 2;
-                    if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit)
-                        && !priorCapture)
+                    if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1) && !priorCapture)
                         factor += 2;
                     update_continuation_histories(ss, movedPiece, move.to_sq(),
                                                   factor * stat_bonus(newDepth));
