@@ -151,7 +151,6 @@ struct Pos {
   RootMoves *rootMoves;
   Stack *stack;
   uint64_t nodes;
-  uint64_t tb_hits;
   int PVIdx, PVLast;
   int selDepth, nmp_ply, nmp_odd;
   Depth rootDepth;
@@ -183,7 +182,6 @@ struct Pos {
 // FEN string input/output
 void pos_set(Pos *pos, char *fen, int isChess960);
 void pos_fen(const Pos *pos, char *fen);
-void print_pos(Pos *pos);
 
 //PURE Bitboard pos_attackers_to_occ(const Pos *pos, Square s, Bitboard occupied);
 PURE Bitboard slider_blockers(const Pos *pos, Bitboard sliders, Square s,

@@ -16,11 +16,6 @@ Value search_NonPV(Pos *pos, Stack *ss, Value alpha, Depth depth, int cutNode)
 {
   int rootNode = PvNode && ss->ply == 0;
 
-  assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
-  assert(PvNode || (alpha == beta - 1));
-  assert(DEPTH_ZERO < depth && depth < DEPTH_MAX);
-  assert(!(PvNode && cutNode));
-
   Move pv[MAX_PLY+1], capturesSearched[32], quietsSearched[64];
   TTEntry *tte;
   Key posKey;
@@ -81,8 +76,6 @@ Value search_NonPV(Pos *pos, Stack *ss, Value alpha, Depth depth, int cutNode)
 #endif
   }
 
-  assert(0 <= ss->ply && ss->ply < MAX_PLY);
-
   (ss+1)->excludedMove = bestMove = 0;
   ss->history = &(*pos->counterMoveHistory)[0][0];
   (ss+2)->killers[0] = (ss+2)->killers[1] = 0;
@@ -130,61 +123,6 @@ Value search_NonPV(Pos *pos, Stack *ss, Value alpha, Depth depth, int cutNode)
       }
     }
     return ttValue;
-  }
-
-  // Step 4a. Tablebase probe
-  if (!rootNode && TB_Cardinality) {
-    int piecesCnt = popcount(pieces());
-
-    if (    piecesCnt <= TB_Cardinality
-        && (piecesCnt <  TB_Cardinality || depth >= TB_ProbeDepth)
-        &&  pos_rule50_count() == 0
-        && !can_castle_any())
-    {
-      int found, wdl = TB_probe_wdl(pos, &found);
-
-      if (found) {
-        pos->tb_hits++;
-
-        int drawScore = TB_UseRule50 ? 1 : 0;
-
-        value =  wdl < -drawScore ? -VALUE_MATE + MAX_MATE_PLY + 1 + ss->ply
-               : wdl >  drawScore ?  VALUE_MATE - MAX_MATE_PLY - 1 - ss->ply
-                                  :  VALUE_DRAW + 2 * wdl * drawScore;
-
-        int b =  wdl < -drawScore ? BOUND_UPPER
-               : wdl >  drawScore ? BOUND_LOWER : BOUND_EXACT;
-
-        if (    b == BOUND_EXACT
-            || (b == BOUND_LOWER ? value >= beta : value <= alpha))
-        {
-          tte_save(tte, posKey, value_to_tt(value, ss->ply), b,
-                   min(DEPTH_MAX - ONE_PLY, depth + 6 * ONE_PLY), 0,
-                   VALUE_NONE, tt_generation());
-          return value;
-        }
-
-        if (piecesCnt <= TB_CardinalityDTM) {
-          Value mate = TB_probe_dtm(pos, wdl, &found);
-          if (found) {
-            mate += wdl > 0 ? -ss->ply : ss->ply;
-            tte_save(tte, posKey, value_to_tt(mate, ss->ply), BOUND_EXACT,
-                     min(DEPTH_MAX - ONE_PLY, depth + 6 * ONE_PLY), 0,
-                     VALUE_NONE, tt_generation());
-            return mate;
-          }
-        }
-
-        if (PvNode) {
-          if (b == BOUND_LOWER) {
-            bestValue = value;
-            if (bestValue > alpha)
-              alpha = bestValue;
-          } else
-            maxValue = value;
-        }
-      }
-    }
   }
 
   // Step 5. Evaluate the position statically
@@ -239,7 +177,6 @@ Value search_NonPV(Pos *pos, Stack *ss, Value alpha, Depth depth, int cutNode)
       && ss->staticEval >= beta - 36 * depth / ONE_PLY + 225
       && (ss->ply >= pos->nmp_ply || ss->ply % 2 != pos->nmp_odd))
   {
-    assert(eval - beta >= 0);
 
     // Null move dynamic reduction based on depth and value
     Depth R = ((823 + 67 * depth / ONE_PLY) / 256 + min((eval - beta) / PawnValueMg, 3)) * ONE_PLY;
@@ -261,25 +198,8 @@ Value search_NonPV(Pos *pos, Stack *ss, Value alpha, Depth depth, int cutNode)
       if (nullValue >= VALUE_MATE_IN_MAX_PLY)
         nullValue = beta;
 
-      if (   (depth < 12 * ONE_PLY || pos->nmp_ply)
+      if ((pos->nmp_ply)
           && abs(beta) < VALUE_KNOWN_WIN)
-        return nullValue;
-
-      // Do verification search at high depths
-      // Disable null move pruning for side to move for the first part of
-      // the remaining search tree
-      pos->nmp_ply = ss->ply + 3 * (depth-R) / (4 * ONE_PLY);
-      pos->nmp_odd = ss->ply & 1;
-
-      ss->skipEarlyPruning = 1;
-      Value v =  depth-R < ONE_PLY
-               ? qsearch_NonPV_false(pos, ss, beta-1, DEPTH_ZERO)
-               : search_NonPV(pos, ss, beta-1, depth-R, 0);
-      ss->skipEarlyPruning = 0;
-
-      pos->nmp_odd = pos->nmp_ply = 0;
-
-      if (v >= beta)
         return nullValue;
     }
   }
@@ -293,10 +213,6 @@ Value search_NonPV(Pos *pos, Stack *ss, Value alpha, Depth depth, int cutNode)
   {
     Value rbeta = min(beta + 200, VALUE_INFINITE);
     Depth rdepth = depth - 4 * ONE_PLY;
-
-    assert(rdepth >= ONE_PLY);
-    assert(move_is_ok((ss-1)->currentMove));
-
     mp_init_pc(pos, ttMove, rbeta - ss->staticEval);
 
     while ((move = next_move(pos, 0)))
@@ -355,7 +271,6 @@ moves_loop: // When in check search starts from here.
   // Loop through all pseudo-legal moves until no moves remain or a beta
   // cutoff occurs
   while ((move = next_move(pos, skipQuiets))) {
-    assert(move_is_ok(move));
 
     if (move == excludedMove)
       continue;
@@ -374,17 +289,6 @@ moves_loop: // When in check search starts from here.
     }
 
     ss->moveCount = ++moveCount;
-
-    if (rootNode && pos->thread_idx == 0 && time_elapsed() > 3000) {
-      char buf[16];
-      IO_LOCK;
-      printf("info depth %d currmove %s currmovenumber %d\n",
-             depth / ONE_PLY,
-             uci_move(buf, move, is_chess960()),
-             moveCount + pos->PVIdx);
-      fflush(stdout);
-      IO_UNLOCK;
-    }
 
     if (PvNode)
       (ss+1)->pv = NULL;
@@ -597,8 +501,6 @@ moves_loop: // When in check search starts from here.
     if (rootNode) pos->st[-1].key ^= pos->rootKeyFlip;
     undo_move(pos, move);
 
-    assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
-
     // Step 18. Check for a new best move
     // Finished searching the move. If a stop occurred, the return value of
     // the search cannot be trusted, and we return immediately without
@@ -619,8 +521,6 @@ moves_loop: // When in check search starts from here.
         rm->score = value;
         rm->selDepth = pos->selDepth;
         rm->pv_size = 1;
-
-        assert((ss+1)->pv);
 
         for (Move *m = (ss+1)->pv; *m; ++m)
           rm->pv[rm->pv_size++] = *m;
@@ -649,7 +549,6 @@ moves_loop: // When in check search starts from here.
         if (PvNode && value < beta) // Update alpha! Always alpha < beta
           alpha = value;
         else {
-          assert(value >= beta); // Fail high
           break;
         }
       }
@@ -704,8 +603,6 @@ moves_loop: // When in check search starts from here.
              bestValue >= beta ? BOUND_LOWER :
              PvNode && bestMove ? BOUND_EXACT : BOUND_UPPER,
              depth, bestMove, ss->staticEval, tt_generation());
-
-  assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
   return bestValue;
 }

@@ -29,7 +29,6 @@
 #include "settings.h"
 #include "thread.h"
 #include "uci.h"
-#include "tbprobe.h"
 
 // Global objects
 ThreadPool Threads;
@@ -380,14 +379,4 @@ uint64_t threads_nodes_searched(void)
   return nodes;
 }
 
-
-// threads_tb_hits() returns the number of TB hits.
-
-uint64_t threads_tb_hits(void)
-{
-  uint64_t hits = 0;
-  for (int idx = 0; idx < Threads.num_threads; idx++)
-    hits += Threads.pos[idx]->tb_hits;
-  return hits;
-}
 

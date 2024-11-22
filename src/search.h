@@ -38,8 +38,6 @@ struct RootMove {
   Value score;
   Value previousScore;
   int selDepth;
-  int TBRank;
-  Value TBScore;
   Move pv[MAX_PLY];
 };
 
@@ -90,7 +88,6 @@ typedef struct SignalsType SignalsType;
 
 extern SignalsType Signals;
 extern LimitsType Limits;
-extern int TB_RootInTB;
 
 INLINE int use_time_management(void)
 {
@@ -100,7 +97,6 @@ INLINE int use_time_management(void)
 
 void search_init();
 void search_clear();
-uint64_t perft(Pos *pos, Depth depth);
 void start_thinking(Pos *pos);
 
 #endif

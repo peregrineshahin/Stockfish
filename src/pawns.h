@@ -2,7 +2,8 @@
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
   Copyright (C) 2004-2008 Tord Romstad (Glaurung author)
   Copyright (C) 2008-2015 Marco Costalba, Joona Kiiski, Tord Romstad
-  Copyright (C) 2015-2016 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
+  Copyright (C) 2015-2016 Marco Costalba, Joona Kiiski, Gary Linscott, Tord
+  Romstad
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -26,7 +27,7 @@
 #include "types.h"
 
 // Number of entries in the pawn hash table. Must be a power of 2.
-#define PAWN_ENTRIES 16384
+#define PAWN_ENTRIES 128
 
 // PawnEntry contains various information about a pawn structure. A lookup
 // to the pawn hash table (performed by calling the probe function) returns
@@ -59,8 +60,7 @@ Value shelter_storm_black(const Pos *pos, Square ksq);
 
 void pawn_entry_fill(const Pos *pos, PawnEntry *e, Key k);
 
-INLINE PawnEntry *pawn_probe(const Pos *pos)
-{
+INLINE PawnEntry *pawn_probe(const Pos *pos) {
   Key key = pos_pawn_key();
   PawnEntry *e = &pos->pawnTable[key & (PAWN_ENTRIES - 1)];
 
@@ -70,34 +70,29 @@ INLINE PawnEntry *pawn_probe(const Pos *pos)
   return e;
 }
 
-INLINE int semiopen_file(PawnEntry *pe, int c, int f)
-{
+INLINE int semiopen_file(PawnEntry *pe, int c, int f) {
   return pe->semiopenFiles[c] & (1 << f);
 }
 
-INLINE int semiopen_side(PawnEntry *pe, int c, int f, int left)
-{
+INLINE int semiopen_side(PawnEntry *pe, int c, int f, int left) {
   return pe->semiopenFiles[c] & (left ? (1 << f) - 1 : ~((1 << (f + 1)) - 1));
 }
 
-INLINE int pawns_on_same_color_squares(PawnEntry *pe, int c, Square s)
-{
+INLINE int pawns_on_same_color_squares(PawnEntry *pe, int c, Square s) {
   return pe->pawnsOnSquares[c][!!(DarkSquares & sq_bb(s))];
 }
 
-INLINE Score king_safety_white(PawnEntry *pe, const Pos *pos, Square ksq)
-{
-  if (   pe->kingSquares[WHITE] == ksq
-      && pe->castlingRights[WHITE] == can_castle_c(WHITE))
+INLINE Score king_safety_white(PawnEntry *pe, const Pos *pos, Square ksq) {
+  if (pe->kingSquares[WHITE] == ksq &&
+      pe->castlingRights[WHITE] == can_castle_c(WHITE))
     return pe->kingSafety[WHITE];
   else
     return pe->kingSafety[WHITE] = do_king_safety_white(pe, pos, ksq);
 }
 
-INLINE Score king_safety_black(PawnEntry *pe, const Pos *pos, Square ksq)
-{
-  if (   pe->kingSquares[BLACK] == ksq
-      && pe->castlingRights[BLACK] == can_castle_c(BLACK))
+INLINE Score king_safety_black(PawnEntry *pe, const Pos *pos, Square ksq) {
+  if (pe->kingSquares[BLACK] == ksq &&
+      pe->castlingRights[BLACK] == can_castle_c(BLACK))
     return pe->kingSafety[BLACK];
   else
     return pe->kingSafety[BLACK] = do_king_safety_black(pe, pos, ksq);
@@ -106,4 +101,3 @@ INLINE Score king_safety_black(PawnEntry *pe, const Pos *pos, Square ksq)
 void pawn_init();
 
 #endif
-

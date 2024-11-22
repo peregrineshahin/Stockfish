@@ -197,13 +197,6 @@ void go(Pos *pos, char *str)
       Limits.infinite = 1;
     else if (strcmp(token, "ponder") == 0)
       Limits.ponder = 1;
-    else if (strcmp(token, "perft") == 0) {
-      char str_buf[64];
-      sprintf(str_buf, "%d %d %d current perft", option_value(OPT_HASH),
-                    option_value(OPT_THREADS), atoi(strtok(NULL, " \t")));
-      benchmark(pos, str_buf);
-      return;
-    }
   }
 
   start_thinking(pos);
@@ -333,15 +326,6 @@ void uci_loop(int argc, char **argv)
     else if (strcmp(token, "go") == 0)        go(&pos, str);
     else if (strcmp(token, "position") == 0)  position(&pos, str);
     else if (strcmp(token, "setoption") == 0) setoption(str);
-
-    // Additional custom non-UCI commands, useful for debugging
-    else if (strcmp(token, "bench") == 0)     benchmark(&pos, str);
-    else if (strcmp(token, "d") == 0)         print_pos(&pos);
-    else if (strcmp(token, "perft") == 0) {
-      sprintf(str_buf, "%d %d %d current perft", option_value(OPT_HASH),
-                    option_value(OPT_THREADS), atoi(str));
-      benchmark(&pos, str_buf);
-    }
     else {
       printf("Unknown command: %s %s\n", token, str);
       fflush(stdout);
@@ -370,9 +354,6 @@ char *uci_value(char *str, Value v)
 {
   if (abs(v) < VALUE_MATE - MAX_MATE_PLY)
     sprintf(str, "cp %d", v * 100 / PawnValueEg);
-  else
-    sprintf(str, "mate %d",
-                 (v > 0 ? VALUE_MATE - v + 1 : -VALUE_MATE - v) / 2);
 
   return str;
 }

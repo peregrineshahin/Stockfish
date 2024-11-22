@@ -116,7 +116,7 @@ typedef uint64_t Key;
 typedef uint64_t Bitboard;
 
 #define MAX_MOVES 256
-#define MAX_PLY 128
+#define MAX_PLY 64
 
 // A move needs 16 bits to be stored
 //
@@ -413,7 +413,7 @@ typedef struct MaterialEntry MaterialEntry;
 typedef Move CounterMoveStat[16][64];
 typedef int16_t PieceToHistory[16][64];
 typedef PieceToHistory CounterMoveHistoryStat[16][64];
-typedef int16_t ButterflyHistory[2][4096];
+typedef int16_t ButterflyHistory[2][1024];
 typedef int16_t CapturePieceToHistory[16][64][8];
 
 struct ExtMove {

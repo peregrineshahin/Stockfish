@@ -148,7 +148,6 @@ INLINE TTEntry *tt_first_entry(Key key)
 }
 
 TTEntry *tt_probe(Key key, int *found);
-int tt_hashfull(void);
 void tt_allocate(size_t mbSize);
 void tt_clear(void);
 

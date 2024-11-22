@@ -30,10 +30,8 @@
 
 #include "misc.h"
 #include "numa.h"
-#include "polybook.h"
 #include "search.h"
 #include "settings.h"
-#include "tbprobe.h"
 #include "thread.h"
 #include "tt.h"
 #include "uci.h"
@@ -66,30 +64,11 @@ static void on_threads(Option *opt)
   delayed_settings.num_threads = opt->value;
 }
 
-static void on_tb_path(Option *opt)
-{
-  TB_init(opt->val_string);
-}
-
 static void on_large_pages(Option *opt)
 {
   delayed_settings.large_pages = opt->value;
 }
 
-static void on_book_file(Option *opt)
-{
-  pb_init(opt->val_string);
-}
-
-static void on_best_book_move(Option *opt)
-{
-  pb_set_best_book_move(opt->value);
-}
-
-static void on_book_depth(Option *opt)
-{
-  pb_set_book_depth(opt->value);
-}
 
 #ifdef IS_64BIT
 #ifdef BIG_TT
@@ -105,7 +84,7 @@ static Option options_map[] = {
   { "Contempt", OPT_TYPE_SPIN, 20, -100, 100, NULL, NULL, 0, NULL },
   { "Analysis Contempt", OPT_TYPE_CHECK, 0, 0, 0, NULL, NULL, 0, NULL },
   { "Threads", OPT_TYPE_SPIN, 1, 1, MAX_THREADS, NULL, on_threads, 0, NULL },
-  { "Hash", OPT_TYPE_SPIN, 16, 1, MAXHASHMB, NULL, on_hash_size, 0, NULL },
+  { "Hash", OPT_TYPE_SPIN, 1, 1, MAXHASHMB, NULL, on_hash_size, 0, NULL },
   { "Clear Hash", OPT_TYPE_BUTTON, 0, 0, 0, NULL, on_clear_hash, 0, NULL },
   { "Ponder", OPT_TYPE_CHECK, 0, 0, 0, NULL, NULL, 0, NULL },
   { "MultiPV", OPT_TYPE_SPIN, 1, 1, 500, NULL, NULL, 0, NULL },
@@ -116,14 +95,6 @@ static Option options_map[] = {
   { "nodestime", OPT_TYPE_SPIN, 0, 0, 10000, NULL, NULL, 0, NULL },
   { "UCI_AnalyseMode", OPT_TYPE_CHECK, 0, 0, 0, NULL, NULL, 0, NULL },
   { "UCI_Chess960", OPT_TYPE_CHECK, 0, 0, 0, NULL, NULL, 0, NULL },
-  { "SyzygyPath", OPT_TYPE_STRING, 0, 0, 0, "<empty>", on_tb_path, 0, NULL },
-  { "SyzygyProbeDepth", OPT_TYPE_SPIN, 1, 1, 100, NULL, NULL, 0, NULL },
-  { "Syzygy50MoveRule", OPT_TYPE_CHECK, 1, 0, 0, NULL, NULL, 0, NULL },
-  { "SyzygyProbeLimit", OPT_TYPE_SPIN, 6, 0, 6, NULL, NULL, 0, NULL },
-  { "SyzygyUseDTM", OPT_TYPE_CHECK, 1, 0, 0, NULL, NULL, 0, NULL },
-  { "BookFile", OPT_TYPE_STRING, 0, 0, 0, "<empty>", on_book_file, 0, NULL },
-  { "BestBookMove", OPT_TYPE_CHECK, 1, 0, 0, NULL, on_best_book_move, 0, NULL },
-  { "BookDepth", OPT_TYPE_SPIN, 255, 1, 255, NULL, on_book_depth, 0, NULL },
   { "LargePages", OPT_TYPE_CHECK, 1, 0, 0, NULL, on_large_pages, 0, NULL },
   { "NUMA", OPT_TYPE_STRING, 0, 0, 0, "all", on_numa, 0, NULL },
   { NULL }

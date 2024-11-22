@@ -12,7 +12,6 @@
 #include "thread.h"
 #include "tt.h"
 #include "uci.h"
-#include "tbprobe.h"
 
 static void set_castling_right(Pos *pos, uint32_t c, Square rfrom);
 static void set_state(Pos *pos, Stack *st);
@@ -108,43 +107,6 @@ INLINE void set_check_info(Pos *pos)
   st->checkSquares[QUEEN]  = st->checkSquares[BISHOP] | st->checkSquares[ROOK];
   st->checkSquares[KING]   = 0;
 }
-
-
-// print_pos() prints an ASCII representation of the position to stdout.
-
-void print_pos(Pos *pos)
-{
-  char fen[128];
-  pos_fen(pos, fen);
-
-  printf("\n +---+---+---+---+---+---+---+---+\n");
-
-  for (int r = 7; r >= 0; r--) {
-    for (int f = 0; f <= 7; f++)
-      printf(" | %c", PieceToChar[pos->board[8 * r + f]]);
-
-    printf(" |\n +---+---+---+---+---+---+---+---+\n");
-  }
-
-  printf("\nFen: %s\nKey: %16"PRIX64"\nCheckers: ", fen, pos_key());
-
-  char buf[16];
-  for (Bitboard b = pos_checkers(); b; )
-    printf("%s ", uci_square(buf, pop_lsb(&b)));
-
-  if (popcount(pieces()) <= TB_MaxCardinality && !can_castle_cr(ANY_CASTLING)) {
-    int s1, s2;
-    int wdl = TB_probe_wdl(pos, &s1);
-    int dtz = TB_probe_dtz(pos, &s2);
-    printf("\nTablebases WDL: %4d (%d)\nTablebases DTZ: %4d (%d)", wdl, s1, dtz, s2);
-    if (s1) {
-      Value dtm = TB_probe_dtm(pos, wdl, &s1);
-      printf("\nTablebases DTM: %s (%d)", uci_value(buf, dtm), s1);
-    }
-  }
-  printf("\n");
-}
-
 
 // zob_init() initializes at startup the various arrays used to compute
 // hash keys.
@@ -1372,24 +1334,6 @@ int see_sign(const Pos *pos, Move m)
   assert(move_is_ok(m));
 
   return see_ab(pos, m, -VALUE_INFINITE, 0);
-}
-#endif
-
-#if 0
-// For debugging purposes.
-int see_test(Pos *pos, Move m, int value)
-{
-  int s1 = see_ab(pos, m, value - 1, value) >= value;
-  int s2 = see_test1(pos, m, value);
-  if (s1 != s2) {
-    printf("s1 = %d, s2 = %d\n", s1, s2);
-    print_pos(pos);
-    printf("from = %d, to = %d, value = %d\n", from_sq(m), to_sq(m), value);
-    s1 = see_ab(pos, m, value - 1, value) >= value;
-//    s1 = see_ab(pos, m, -VALUE_INFINITE, +VALUE_INFINITE) >= value;
-  }
-  return s1;
-//  return see(pos, m) >= value;
 }
 #endif
 

@@ -198,20 +198,3 @@ TTEntry *tt_probe(Key key, int *found)
   *found = 0;
   return replace;
 }
-
-
-// Returns an approximation of the hashtable occupation during a search. The
-// hash is x permill full, as per UCI protocol.
-
-int tt_hashfull(void)
-{
-  int cnt = 0;
-  for (int i = 0; i < 1000 / ClusterSize; i++) {
-    const TTEntry *tte = &TT.table[i].entry[0];
-    for (int j = 0; j < ClusterSize; j++)
-      if ((tte[j].genBound8 & 0xFC) == TT.generation8)
-        cnt++;
-  }
-  return cnt;
-}
-
