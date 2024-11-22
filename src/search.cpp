@@ -850,7 +850,8 @@ Value Search::Worker::search(
 
     // For cutNodes, if depth is high enough, decrease depth by 2 if there is no ttMove,
     // or by 1 if there is a ttMove with an upper bound.
-    if (cutNode && depth >= 7 && (!ttData.move || ttData.bound == BOUND_UPPER))
+    if (cutNode && depth >= 7
+        && !(ttData.move && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 6))
         depth -= 1 + !ttData.move;
 
     // Step 11. ProbCut (~10 Elo)
