@@ -644,7 +644,8 @@ Value Search::Worker::search(
         {
             // Bonus for a quiet ttMove that fails high (~2 Elo)
             if (!ttCapture)
-                update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth + allNode));
+                update_quiet_histories(pos, ss, *this, ttData.move,
+                                       stat_bonus(depth + 2 * allNode));
 
             // Extra penalty for early quiet moves of
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
