@@ -644,13 +644,15 @@ Value Search::Worker::search(
         {
             // Bonus for a quiet ttMove that fails high (~2 Elo)
             if (!ttCapture)
+            {
                 update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth));
 
-            // Extra penalty for early quiet moves of
-            // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
-            if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
-                update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                              -stat_malus(depth + 1));
+                // Extra penalty for early quiet moves of
+                // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
+                if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
+                    update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                                  -stat_malus(depth + 1));
+            }
         }
 
         // Partial workaround for the graph history interaction problem
@@ -1217,7 +1219,8 @@ moves_loop:  // When in check, search starts here
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = 2 * (value >= beta) * stat_bonus(newDepth);
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                if (!capture)
+                    update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
             }
         }
 
@@ -1389,10 +1392,13 @@ moves_loop:  // When in check, search starts here
 
         bonus = std::max(bonus, 0);
 
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus / 93);
-        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << stat_bonus(depth) * bonus / 179;
+        if (!capture)
+        {
+            update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                          stat_bonus(depth) * bonus / 93);
+            thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
+              << stat_bonus(depth) * bonus / 179;
+        }
 
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
@@ -1798,10 +1804,11 @@ void update_all_stats(const Position&      pos,
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int bonus = stat_bonus(depth);
-    int malus = stat_malus(depth);
+    int  bonus   = stat_bonus(depth);
+    int  malus   = stat_malus(depth);
+    bool capture = pos.capture_stage(bestMove);
 
-    if (!pos.capture_stage(bestMove))
+    if (!capture)
     {
         update_quiet_histories(pos, ss, workerThread, bestMove, bonus);
 
@@ -1818,7 +1825,8 @@ void update_all_stats(const Position&      pos,
 
     // Extra penalty for a quiet early move that was not a TT move in
     // previous ply when it gets refuted.
-    if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece())
+    if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece()
+        && !capture)
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -malus);
 
     // Decrease stats for all non-best capture moves
