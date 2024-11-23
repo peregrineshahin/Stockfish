@@ -652,6 +652,16 @@ Value Search::Worker::search(
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                               -stat_malus(depth + 1));
         }
+        // Bonus for prior countermove that caused the fail low
+        else if (!priorCapture && prevSq != SQ_NONE)
+        {
+            int bonus = (depth > 5) + !allNode + ((ss - 1)->moveCount > 8);
+
+            update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                                          stat_bonus(depth) * bonus);
+            thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
+              << stat_bonus(depth) * bonus;
+        }
 
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
