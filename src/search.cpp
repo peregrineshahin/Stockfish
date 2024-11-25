@@ -1008,12 +1008,14 @@ moves_loop:  // When in check, search starts here
                   thisThread->captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)];
 
                 // Futility pruning for captures (~2 Elo)
-                if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
+                Value futilityValue =
+                  ss->staticEval + 287 + 253 * lmrDepth + PieceValue[capturedPiece] + captHist / 7;
+                if (!givesCheck && lmrDepth < 7 && !ss->inCheck && futilityValue <= alpha)
                 {
-                    Value futilityValue = ss->staticEval + 287 + 253 * lmrDepth
-                                        + PieceValue[capturedPiece] + captHist / 7;
-                    if (futilityValue <= alpha)
-                        continue;
+                    if (bestValue <= futilityValue && abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY
+                        && futilityValue < VALUE_TB_WIN_IN_MAX_PLY)
+                        bestValue = (bestValue + futilityValue * 3) / 4;
+                    continue;
                 }
 
                 // SEE based pruning for captures and checks (~11 Elo)
