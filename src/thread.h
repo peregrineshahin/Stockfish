@@ -2,7 +2,8 @@
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
   Copyright (C) 2004-2008 Tord Romstad (Glaurung author)
   Copyright (C) 2008-2015 Marco Costalba, Joona Kiiski, Tord Romstad
-  Copyright (C) 2015-2016 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
+  Copyright (C) 2015-2016 Marco Costalba, Joona Kiiski, Gary Linscott, Tord
+  Romstad
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,7 +23,7 @@
 #define THREAD_H
 
 #include <stdatomic.h>
-#ifndef __WIN32__
+#ifndef _WIN32
 #include <pthread.h>
 #else
 #include <windows.h>
@@ -32,7 +33,7 @@
 
 #define MAX_THREADS 512
 
-#ifndef __WIN32__
+#ifndef _WIN32
 #define LOCK_T pthread_mutex_t
 #define LOCK_INIT(x) pthread_mutex_init(&(x), NULL)
 #define LOCK_DESTROY(x) pthread_mutex_destroy(&(x))
@@ -40,35 +41,41 @@
 #define UNLOCK(x) pthread_mutex_unlock(&(x))
 #else
 #define LOCK_T HANDLE
-#define LOCK_INIT(x) do { x = CreateMutex(NULL, FALSE, NULL); } while (0)
+#define LOCK_INIT(x)                                                           \
+  do {                                                                         \
+    x = CreateMutex(NULL, FALSE, NULL);                                        \
+  } while (0)
 #define LOCK_DESTROY(x) CloseHandle(x)
 #define LOCK(x) WaitForSingleObject(x, INFINITE)
 #define UNLOCK(x) ReleaseMutex(x)
 #endif
 
-void thread_init(void *arg);
-void thread_create(int idx);
-void thread_search(Pos *pos);
-void thread_idle_loop(Pos *pos);
-void thread_start_searching(Pos *pos, int resume);
-void thread_wait_for_search_finished(Pos *pos);
-void thread_wait(Pos *pos, atomic_bool *b);
+enum {
+  THREAD_STATE_SLEEP,
+  THREAD_STATE_SEARCH,
+  THREAD_STATE_TT_CLEAR,
+  THREAD_STATE_EXIT,
+  THREAD_STATE_RESUME
+};
 
+void thread_search(Pos *pos);
+void thread_wake_up(Pos *pos, int action);
+void thread_wait_until_sleeping(Pos *pos);
+void thread_wait(Pos *pos, atomic_bool *b);
 
 // MainThread struct seems to exist mostly for easy move.
 
 struct MainThread {
-  int failedLow;
-  double bestMoveChanges, previousTimeReduction;
+  double previousTimeReduction;
   Value previousScore;
+  Value iterValue[4];
 };
 
 typedef struct MainThread MainThread;
 
 extern MainThread mainThread;
 
-void mainthread_search();
-
+void mainthread_search(void);
 
 // ThreadPool struct handles all the threads-related stuff like init,
 // starting, parking and, most importantly, launching a thread. All the
@@ -76,14 +83,15 @@ void mainthread_search();
 
 struct ThreadPool {
   Pos *pos[MAX_THREADS];
-  int num_threads;
-#ifndef __WIN32__
+  int numThreads;
+#ifndef _WIN32
   pthread_mutex_t mutex;
   pthread_cond_t sleepCondition;
   int initializing;
 #else
   HANDLE event;
 #endif
+  atomic_bool increaseDepth;
 };
 
 typedef struct ThreadPool ThreadPool;
@@ -96,13 +104,9 @@ uint64_t threads_nodes_searched(void);
 
 extern ThreadPool Threads;
 
-INLINE Pos *threads_main(void)
-{
-  return Threads.pos[0];
-}
+INLINE Pos *threads_main(void) { return Threads.pos[0]; }
 
-CounterMoveHistoryStat **cmh_tables;
-int num_cmh_tables;
+extern CounterMoveHistoryStat **cmhTables;
+extern int numCmhTables;
 
 #endif
-

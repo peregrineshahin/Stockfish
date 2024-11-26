@@ -5,11 +5,8 @@
 
 typedef struct Pos Pos;
 
-#define Tempo ((Value)20)
-
-extern Score Contempt;
+enum { Tempo = 28 };
 
 Value evaluate(const Pos *pos);
 
 #endif
-

@@ -26,6 +26,7 @@ uint8_t PopCnt16[1 << 16];
 #endif
 uint8_t SquareDistance[64][64];
 
+#ifndef AVX2_BITBOARD
 static int RookDirs[] = { NORTH, EAST, SOUTH, WEST };
 static int BishopDirs[] = { NORTH_EAST, SOUTH_EAST, SOUTH_WEST, NORTH_WEST };
 
@@ -44,6 +45,7 @@ static Bitboard sliding_attack(int dirs[], Square sq, Bitboard occupied)
 
   return attack;
 }
+#endif
 
 #if defined(MAGIC_FANCY)
 #include "magic-fancy.c"
@@ -55,18 +57,19 @@ static Bitboard sliding_attack(int dirs[], Square sq, Bitboard occupied)
 #include "bmi2-fancy.c"
 #elif defined(BMI2_PLAIN)
 #include "bmi2-plain.c"
+#elif defined(AVX2_BITBOARD)
+#include "avx2-bitboard.c"
 #endif
 
 Bitboard SquareBB[64];
 Bitboard FileBB[8];
 Bitboard RankBB[8];
-Bitboard AdjacentFilesBB[8];
 Bitboard ForwardRanksBB[2][8];
 Bitboard BetweenBB[64][64];
 Bitboard LineBB[64][64];
 Bitboard DistanceRingBB[64][8];
 Bitboard ForwardFileBB[2][64];
-Bitboard PassedPawnMask[2][64];
+Bitboard PassedPawnSpan[2][64];
 Bitboard PawnAttackSpan[2][64];
 Bitboard PseudoAttacks[8][64];
 Bitboard PawnAttacks[2][64];
@@ -83,27 +86,7 @@ Square CastlingRookFrom[16];
 Square CastlingRookTo[16];
 #endif
 
-// De Bruijn sequences. See chessprogramming.wikispaces.com/BitScan.
-
-#define DeBruijn64 0x3F79D71B4CB0A89ULL
-#define DeBruijn32 0x783A9B23
-
-#ifdef NO_BSF
-static int MSBTable[256];            // To implement software msb()
-static Square BSFTable[64];          // To implement software bitscan
-#endif
-
-// bsf_index() returns the index into BSFTable[] to look up the bitscan. Uses
-// Matt Taylor's folding for 32 bit case, extended to 64 bit by Kim Walisch.
-
-INLINE unsigned bsf_index(Bitboard b)
-{
-  b ^= b - 1;
-  return Is64Bit ? (b * DeBruijn64) >> 58
-                 : ((((unsigned)b) ^ (unsigned)(b >> 32)) * DeBruijn32) >> 26;
-}
-
-
+#ifndef USE_POPCNT
 // popcount16() counts the non-zero bits using SWAR-Popcount algorithm.
 
 INLINE unsigned popcount16(unsigned u)
@@ -113,45 +96,7 @@ INLINE unsigned popcount16(unsigned u)
   u = ((u >> 4) + u) & 0x0F0FU;
   return (u * 0x0101U) >> 8;
 }
-
-
-#ifdef NO_BSF
-
-/// Software fall-back of lsb() and msb() for CPU lacking hardware support
-
-Square lsb(Bitboard b)
-{
-  assert(b);
-  return BSFTable[bsf_index(b)];
-}
-
-Square msb(Bitboard b)
-{
-  assert(b);
-  unsigned b32;
-  int result = 0;
-
-  if (b > 0xFFFFFFFF) {
-    b >>= 32;
-    result = 32;
-  }
-
-  b32 = (unsigned)b;
-
-  if (b32 > 0xFFFF) {
-    b32 >>= 16;
-    result += 16;
-  }
-
-  if (b32 > 0xFF) {
-    b32 >>= 8;
-    result += 8;
-  }
-
-  return (Square)(result + MSBTable[b32]);
-}
-
-#endif // ifdef NO_BSF
+#endif
 
 
 // Bitboards::pretty() returns an ASCII representation of a bitboard suitable
@@ -173,25 +118,15 @@ void print_pretty(Bitboard b)
 // bitboards_init() initializes various bitboard tables. It is called at
 // startup and relies on global objects to be already zero-initialized.
 
-void bitboards_init()
+void bitboards_init(void)
 {
 #ifndef USE_POPCNT
   for (unsigned i = 0; i < (1 << 16); ++i)
-    PopCnt16[i] = (uint8_t) popcount16(i);
+    PopCnt16[i] = popcount16(i);
 #endif
 
-#ifdef NO_BSF
-  for (Square s = 0; s < 64; s++) {
-    SquareBB[s] = 1ULL << s;
-    BSFTable[bsf_index(SquareBB[s])] = s;
-  }
-
-  for (Bitboard b = 2; b < 256; b++)
-    MSBTable[b] = MSBTable[b - 1] + !more_than_one(b);
-#else
   for (Square s = 0; s < 64; s++)
     SquareBB[s] = 1ULL << s;
-#endif
 
   for (int f = 0; f < 8; f++)
     FileBB[f] = f > FILE_A ? FileBB[f - 1] << 1 : FileABB;
@@ -199,24 +134,21 @@ void bitboards_init()
   for (int r = 0; r < 8; r++)
     RankBB[r] = r > RANK_1 ? RankBB[r - 1] << 8 : Rank1BB;
 
-  for (int f = 0; f < 8; f++)
-    AdjacentFilesBB[f] = (f > FILE_A ? FileBB[f - 1] : 0) | (f < FILE_H ? FileBB[f + 1] : 0);
-
   for (int r = 0; r < 7; r++)
     ForwardRanksBB[WHITE][r] = ~(ForwardRanksBB[BLACK][r + 1] = ForwardRanksBB[BLACK][r] | RankBB[r]);
 
   for (int c = 0; c < 2; c++)
     for (Square s = 0; s < 64; s++) {
       ForwardFileBB[c][s]  = ForwardRanksBB[c][rank_of(s)] & FileBB[file_of(s)];
-      PawnAttackSpan[c][s] = ForwardRanksBB[c][rank_of(s)] & AdjacentFilesBB[file_of(s)];
-      PassedPawnMask[c][s] = ForwardFileBB[c][s] | PawnAttackSpan[c][s];
+      PawnAttackSpan[c][s] = ForwardRanksBB[c][rank_of(s)] & adjacent_files_bb(file_of(s));
+      PassedPawnSpan[c][s] = ForwardFileBB[c][s] | PawnAttackSpan[c][s];
     }
 
   for (Square s1 = 0; s1 < 64; s1++)
     for (Square s2 = 0; s2 < 64; s2++)
       if (s1 != s2) {
         SquareDistance[s1][s2] = max(distance_f(s1, s2), distance_r(s1, s2));
-        DistanceRingBB[s1][SquareDistance[s1][s2] - 1] |= sq_bb(s2);
+        DistanceRingBB[s1][SquareDistance[s1][s2]] |= sq_bb(s2);
       }
 
 #ifndef PEDANTIC
@@ -259,4 +191,3 @@ void bitboards_init()
       }
   }
 }
-

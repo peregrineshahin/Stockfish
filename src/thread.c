@@ -2,7 +2,8 @@
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
   Copyright (C) 2004-2008 Tord Romstad (Glaurung author)
   Copyright (C) 2008-2015 Marco Costalba, Joona Kiiski, Tord Romstad
-  Copyright (C) 2015-2017 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
+  Copyright (C) 2015-2017 Marco Costalba, Joona Kiiski, Gary Linscott, Tord
+  Romstad
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -28,46 +29,57 @@
 #include "search.h"
 #include "settings.h"
 #include "thread.h"
+#include "tt.h"
 #include "uci.h"
+
+static void thread_idle_loop(Pos *pos);
+
+#ifndef _WIN32
+#define THREAD_FUNC void *
+#else
+#define THREAD_FUNC DWORD WINAPI
+#endif
 
 // Global objects
 ThreadPool Threads;
 MainThread mainThread;
-CounterMoveHistoryStat **cmh_tables = NULL;
-int num_cmh_tables = 0;
+CounterMoveHistoryStat **cmhTables = NULL;
+int numCmhTables = 0;
 
 // thread_init() is where a search thread starts and initialises itself.
 
-void thread_init(void *arg)
-{
+static THREAD_FUNC thread_init(void *arg) {
   int idx = (intptr_t)arg;
 
   int node;
-  if (settings.numa_enabled)
+  if (settings.numaEnabled)
     node = bind_thread_to_numa_node(idx);
   else
     node = 0;
-  if (node >= num_cmh_tables) {
-    int old = num_cmh_tables;
-    num_cmh_tables = node + 16;
-    cmh_tables = realloc(cmh_tables,
-                         num_cmh_tables * sizeof(CounterMoveHistoryStat *));
-    while (old < num_cmh_tables)
-      cmh_tables[old++] = NULL;
+  if (node >= numCmhTables) {
+    int old = numCmhTables;
+    numCmhTables = node + 16;
+    cmhTables =
+        realloc(cmhTables, numCmhTables * sizeof(CounterMoveHistoryStat *));
+    while (old < numCmhTables)
+      cmhTables[old++] = NULL;
   }
-  if (!cmh_tables[node]) {
-    if (settings.numa_enabled)
-      cmh_tables[node] = numa_alloc(sizeof(CounterMoveHistoryStat));
+  if (!cmhTables[node]) {
+    if (settings.numaEnabled)
+      cmhTables[node] = numa_alloc(sizeof(CounterMoveHistoryStat));
     else
-      cmh_tables[node] = calloc(sizeof(CounterMoveHistoryStat), 1);
-    for (int j = 0; j < 16; j++)
-      for (int k = 0; k < 64; k++)
-        (*cmh_tables[node])[0][0][j][k] = CounterMovePruneThreshold - 1;
+      cmhTables[node] = calloc(sizeof(CounterMoveHistoryStat), 1);
+    for (int chk = 0; chk < 2; chk++)
+      for (int c = 0; c < 2; c++)
+        for (int j = 0; j < 16; j++)
+          for (int k = 0; k < 64; k++)
+            (*cmhTables[node])[0][0][j][k] =
+                CounterMovePruneThreshold - 1;
   }
 
   Pos *pos;
 
-  if (settings.numa_enabled) {
+  if (settings.numaEnabled) {
     pos = numa_alloc(sizeof(Pos));
     pos->pawnTable = numa_alloc(PAWN_ENTRIES * sizeof(PawnEntry));
     pos->materialTable = numa_alloc(8192 * sizeof(MaterialEntry));
@@ -88,14 +100,13 @@ void thread_init(void *arg)
     pos->stack = calloc((MAX_PLY + 110) * sizeof(Stack), 1);
     pos->moveList = calloc(10000 * sizeof(ExtMove), 1);
   }
-  pos->thread_idx = idx;
-  pos->counterMoveHistory = cmh_tables[node];
+  pos->threadIdx = idx;
+  pos->counterMoveHistory = cmhTables[node];
 
-  atomic_store(&pos->resetCalls, 0);
-  pos->exit = 0;
+  atomic_store(&pos->resetCalls, false);
   pos->selDepth = pos->callsCnt = 0;
 
-#ifndef __WIN32__  // linux
+#ifndef _WIN32 // linux
 
   pthread_mutex_init(&pos->mutex, NULL);
   pthread_cond_init(&pos->sleepCondition, NULL);
@@ -119,27 +130,28 @@ void thread_init(void *arg)
 #endif
 
   thread_idle_loop(pos);
+
+  return 0;
 }
 
 // thread_create() launches a new thread.
 
-void thread_create(int idx)
-{
-#ifndef __WIN32__
+static void thread_create(int idx) {
+#ifndef _WIN32
 
   pthread_t thread;
 
   Threads.initializing = 1;
   pthread_mutex_lock(&Threads.mutex);
-  pthread_create(&thread, NULL, (void*(*)(void*))thread_init,
-                 (void *)(intptr_t)idx);
+  pthread_create(&thread, NULL, thread_init, (void *)(intptr_t)idx);
   while (Threads.initializing)
     pthread_cond_wait(&Threads.sleepCondition, &Threads.mutex);
   pthread_mutex_unlock(&Threads.mutex);
 
 #else
 
-  HANDLE *thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)thread_init, (void *)(intptr_t)idx, 0 , NULL);
+  HANDLE thread =
+      CreateThread(NULL, 0, thread_init, (void *)(intptr_t)idx, 0, NULL);
   WaitForSingleObject(Threads.event, INFINITE);
 
 #endif
@@ -147,28 +159,26 @@ void thread_create(int idx)
   Threads.pos[idx]->nativeThread = thread;
 }
 
-
 // thread_destroy() waits for thread termination before returning.
 
-void thread_destroy(Pos *pos)
-{
-#ifndef __WIN32__
+static void thread_destroy(Pos *pos) {
+#ifndef _WIN32
   pthread_mutex_lock(&pos->mutex);
-  pos->exit = 1;
+  pos->action = THREAD_STATE_EXIT;
   pthread_cond_signal(&pos->sleepCondition);
   pthread_mutex_unlock(&pos->mutex);
   pthread_join(pos->nativeThread, NULL);
   pthread_cond_destroy(&pos->sleepCondition);
   pthread_mutex_destroy(&pos->mutex);
 #else
-  pos->exit = 1;
+  pos->action = THREAD_STATE_EXIT;
   SetEvent(pos->startEvent);
   WaitForSingleObject(pos->nativeThread, INFINITE);
   CloseHandle(pos->startEvent);
   CloseHandle(pos->stopEvent);
 #endif
 
-  if (settings.numa_enabled) {
+  if (settings.numaEnabled) {
     numa_free(pos->pawnTable, PAWN_ENTRIES * sizeof(PawnEntry));
     numa_free(pos->materialTable, 8192 * sizeof(MaterialEntry));
     numa_free(pos->counterMoves, sizeof(CounterMoveStat));
@@ -191,192 +201,204 @@ void thread_destroy(Pos *pos)
   }
 }
 
-
 // thread_wait_for_search_finished() waits on sleep condition until
 // not searching.
 
-void thread_wait_for_search_finished(Pos *pos)
-{
-#ifndef __WIN32__
+void thread_wait_until_sleeping(Pos *pos) {
+#ifndef _WIN32
+
   pthread_mutex_lock(&pos->mutex);
-  while (pos->searching)
+
+  while (pos->action != THREAD_STATE_SLEEP)
     pthread_cond_wait(&pos->sleepCondition, &pos->mutex);
+
   pthread_mutex_unlock(&pos->mutex);
+
 #else
+
   WaitForSingleObject(pos->stopEvent, INFINITE);
+
 #endif
 
-  if (pos->thread_idx == 0)
+  if (pos->threadIdx == 0)
     Signals.searching = 0;
 }
 
-
 // thread_wait() waits on sleep condition until condition is true.
 
-void thread_wait(Pos *pos, atomic_bool *condition)
-{
-#ifndef __WIN32__
+void thread_wait(Pos *pos, atomic_bool *condition) {
+#ifndef _WIN32
+
   pthread_mutex_lock(&pos->mutex);
+
   while (!atomic_load(condition))
     pthread_cond_wait(&pos->sleepCondition, &pos->mutex);
+
   pthread_mutex_unlock(&pos->mutex);
+
 #else
+
   (void)condition;
   WaitForSingleObject(pos->startEvent, INFINITE);
+
 #endif
 }
 
+void thread_wake_up(Pos *pos, int action) {
+#ifndef _WIN32
 
-// thread_start_searching() wakes up the thread that will start the search.
-
-void thread_start_searching(Pos *pos, int resume)
-{
-#ifndef __WIN32__
   pthread_mutex_lock(&pos->mutex);
 
-  if (!resume)
-    pos->searching = 1;
+#endif
+
+  if (action != THREAD_STATE_RESUME)
+    pos->action = action;
+
+#ifndef _WIN32
 
   pthread_cond_signal(&pos->sleepCondition);
   pthread_mutex_unlock(&pos->mutex);
+
 #else
-  (void)resume;
+
   SetEvent(pos->startEvent);
+
 #endif
 }
 
-
 // thread_idle_loop() is where the thread is parked when it has no work to do.
 
-void thread_idle_loop(Pos *pos)
-{
-#ifndef __WIN32__
-
-  pthread_mutex_lock(&pos->mutex);
+static void thread_idle_loop(Pos *pos) {
   while (1) {
+#ifndef _WIN32
 
-    while (!pos->searching && !pos->exit) {
+    pthread_mutex_lock(&pos->mutex);
+
+    while (pos->action == THREAD_STATE_SLEEP) {
       pthread_cond_signal(&pos->sleepCondition); // Wake up any waiting thread
       pthread_cond_wait(&pos->sleepCondition, &pos->mutex);
     }
 
     pthread_mutex_unlock(&pos->mutex);
 
-    if (pos->exit)
-      break;
-
-    if (pos->thread_idx == 0)
-      mainthread_search();
-    else
-      thread_search(pos);
-
-    pthread_mutex_lock(&pos->mutex);
-    pos->searching = 0;
-  }
-
 #else
 
-  while (1) {
     WaitForSingleObject(pos->startEvent, INFINITE);
 
-    if (pos->exit)
+#endif
+
+    if (pos->action == THREAD_STATE_EXIT) {
+
       break;
 
-    if (pos->thread_idx == 0)
-      mainthread_search();
-    else
-      thread_search(pos);
+    } else if (pos->action == THREAD_STATE_TT_CLEAR) {
+
+      tt_clear_worker(pos->threadIdx);
+
+    } else {
+
+      if (pos->threadIdx == 0)
+        mainthread_search();
+      else
+        thread_search(pos);
+    }
+
+    pos->action = THREAD_STATE_SLEEP;
+
+#ifdef _WIN32
 
     SetEvent(pos->stopEvent);
-  }
 
 #endif
+  }
 }
-
 
 // threads_init() creates and launches requested threads that will go
 // immediately to sleep. We cannot use a constructor because Threads is a
 // static object and we need a fully initialized engine at this point due to
 // allocation of Endgames in the Thread constructor.
 
-void threads_init(void)
-{
-#ifndef __WIN32__
+void threads_init(void) {
+#ifndef _WIN32
+
   pthread_mutex_init(&Threads.mutex, NULL);
   pthread_cond_init(&Threads.sleepCondition, NULL);
+
 #else
-  io_mutex = CreateMutex(NULL, FALSE, NULL);
+
   Threads.event = CreateEvent(NULL, FALSE, FALSE, NULL);
+
 #endif
 
 #ifdef NUMA
+
   numa_init();
+
 #endif
 
-  Threads.num_threads = 1;
+  Threads.numThreads = 1;
   thread_create(0);
 }
-
 
 // threads_exit() terminates threads before the program exits. Cannot be
 // done in destructor because threads must be terminated before deleting
 // any static objects while still in main().
 
-void threads_exit(void)
-{
+void threads_exit(void) {
   threads_set_number(0);
 
-#ifndef __WIN32__
+#ifndef _WIN32
+
   pthread_cond_destroy(&Threads.sleepCondition);
   pthread_mutex_destroy(&Threads.mutex);
+
 #else
-  CloseHandle(io_mutex);
+
   CloseHandle(Threads.event);
+
 #endif
 
 #ifdef NUMA
+
   numa_exit();
+
 #endif
 }
-
 
 // threads_set_number() creates/destroys threads to match the requested
 // number.
 
-void threads_set_number(int num)
-{
-  while (Threads.num_threads < num)
-    thread_create(Threads.num_threads++);
+void threads_set_number(int num) {
+  while (Threads.numThreads < num)
+    thread_create(Threads.numThreads++);
 
-  while (Threads.num_threads > num)
-    thread_destroy(Threads.pos[--Threads.num_threads]);
+  while (Threads.numThreads > num)
+    thread_destroy(Threads.pos[--Threads.numThreads]);
 
-  if (num == 0 && num_cmh_tables > 0) {
-    for (int i = 0; i < num_cmh_tables; i++)
-      if (cmh_tables[i]) {
-        if (settings.numa_enabled)
-          numa_free(cmh_tables[i], sizeof(CounterMoveHistoryStat));
+  search_init();
+
+  if (num == 0 && numCmhTables > 0) {
+    for (int i = 0; i < numCmhTables; i++)
+      if (cmhTables[i]) {
+        if (settings.numaEnabled)
+          numa_free(cmhTables[i], sizeof(CounterMoveHistoryStat));
         else
-          free(cmh_tables[i]);
+          free(cmhTables[i]);
       }
-    free(cmh_tables);
-    cmh_tables = NULL;
-    num_cmh_tables = 0;
+    free(cmhTables);
+    cmhTables = NULL;
+    numCmhTables = 0;
   }
 
   if (num == 0)
     Signals.searching = 0;
 }
 
-
 // threads_nodes_searched() returns the number of nodes searched.
 
-uint64_t threads_nodes_searched(void)
-{
+uint64_t threads_nodes_searched(void) {
   uint64_t nodes = 0;
-  for (int idx = 0; idx < Threads.num_threads; idx++)
+  for (int idx = 0; idx < Threads.numThreads; idx++)
     nodes += Threads.pos[idx]->nodes;
   return nodes;
 }
-
-

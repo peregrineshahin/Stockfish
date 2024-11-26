@@ -30,7 +30,8 @@
 // move       16 bit
 // value      16 bit
 // eval value 16 bit
-// generation  6 bit
+// generation  5 bit
+// pv node     1 bit
 // bound type  2 bit
 // depth       8 bit
 
@@ -40,12 +41,12 @@ struct TTEntry {
   int16_t  value16;
   int16_t  eval16;
   uint8_t  genBound8;
-  int8_t   depth8;
+  uint8_t   depth8;
 };
 
 typedef struct TTEntry TTEntry;
 
-INLINE void tte_save(TTEntry *tte, Key k, Value v, int b, Depth d,
+INLINE void tte_save(TTEntry *tte, Key k, Value v, int pn, int b, Depth d,
                             Move m, Value ev, uint8_t g)
 {
   // Preserve any existing move for the same position
@@ -54,14 +55,15 @@ INLINE void tte_save(TTEntry *tte, Key k, Value v, int b, Depth d,
 
   // Don't overwrite more valuable entries
   if (  (k >> 48) != tte->key16
-      || d / ONE_PLY > tte->depth8 - 4
+      || d + 10 > tte->depth8
    /* || g != (tte->genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
       || b == BOUND_EXACT) {
     tte->key16     = (uint16_t)(k >> 48);
     tte->value16   = (int16_t)v;
     tte->eval16    = (int16_t)ev;
-    tte->genBound8 = (uint8_t)(g | b);
-    tte->depth8    = (int8_t)(d / ONE_PLY);
+    tte->genBound8 = (uint8_t)(g | pn | b);
+    assert((d - DEPTH_NONE) >= 0);
+    tte->depth8    = (int8_t)(d - DEPTH_NONE);
   }
 }
 
@@ -82,7 +84,12 @@ INLINE Value tte_eval(TTEntry *tte)
 
 INLINE Depth tte_depth(TTEntry *tte)
 {
-  return (Depth)(tte->depth8 * ONE_PLY);
+  return (Depth)(tte->depth8) + DEPTH_NONE;
+}
+
+INLINE int tte_is_pv(TTEntry *tte)
+{
+  return tte->genBound8 & 0x4;
 }
 
 INLINE int tte_bound(TTEntry *tte)
@@ -98,8 +105,7 @@ INLINE int tte_bound(TTEntry *tte)
 // clusters never cross cache lines. This ensures best cache performance,
 // as the cacheline is prefetched, as soon as possible.
 
-#define CacheLineSize 64
-#define ClusterSize 3
+enum { CacheLineSize = 64, ClusterSize = 3 };
 
 struct Cluster {
   TTEntry entry[ClusterSize];
@@ -118,7 +124,7 @@ struct TranspositionTable {
 #endif
   Cluster *table;
   void *mem;
-  size_t alloc_size;
+  size_t allocSize;
   uint8_t generation8; // Size must be not bigger than TTEntry::genBound8
 };
 
@@ -130,7 +136,7 @@ void tt_free(void);
 
 INLINE void tt_new_search(void)
 {
-  TT.generation8 += 4; // Lower 2 bits are used by Bound
+  TT.generation8 += 8; // Lower 3 bits are used by PvNode and Bound
 }
 
 INLINE uint8_t tt_generation(void)
@@ -150,6 +156,7 @@ INLINE TTEntry *tt_first_entry(Key key)
 TTEntry *tt_probe(Key key, int *found);
 void tt_allocate(size_t mbSize);
 void tt_clear(void);
+void tt_clear_worker(int idx);
 
 #endif
 
