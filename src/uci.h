@@ -1,6 +1,8 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2024 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2008 Tord Romstad (Glaurung author)
+  Copyright (C) 2008-2015 Marco Costalba, Joona Kiiski, Tord Romstad
+  Copyright (C) 2015-2016 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -16,65 +18,77 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef UCI_H_INCLUDED
-#define UCI_H_INCLUDED
+#ifndef UCI_H
+#define UCI_H
 
-#include <cstdint>
-#include <iostream>
-#include <string>
-#include <string_view>
+#include <string.h>
 
-#include "engine.h"
-#include "misc.h"
-#include "search.h"
+#include "types.h"
 
-namespace Stockfish {
+struct Option;
+typedef struct Option Option;
 
-class Position;
-class Move;
-class Score;
-enum Square : int;
-using Value = int;
+typedef void (*OnChange)(Option *);
 
-class UCIEngine {
-   public:
-    UCIEngine(int argc, char** argv);
+// no options are of type combo
+#define OPT_TYPE_CHECK    0
+#define OPT_TYPE_SPIN     1
+#define OPT_TYPE_BUTTON   2
+#define OPT_TYPE_STRING   3
+#define OPT_TYPE_DISABLED 4
 
-    void loop();
+#define OPT_CONTEMPT          0
+#define OPT_ANALYSIS_CONTEMPT 1
+#define OPT_THREADS           2
+#define OPT_HASH              3
+#define OPT_CLEAR_HASH        4
+#define OPT_PONDER            5
+#define OPT_MULTI_PV          6
+#define OPT_SKILL_LEVEL       7
+#define OPT_MOVE_OVERHEAD     8
+#define OPT_MIN_THINK_TIME    9
+#define OPT_SLOW_MOVER        10
+#define OPT_NODES_TIME        11
+#define OPT_ANALYSE_MODE      12
+#define OPT_CHESS960          13
+#define OPT_SYZ_PATH          14
+#define OPT_SYZ_PROBE_DEPTH   15
+#define OPT_SYZ_50_MOVE       16
+#define OPT_SYZ_PROBE_LIMIT   17
+#define OPT_SYZ_USE_DTM       18
+#define OPT_BOOK_FILE         19
+#define OPT_BOOK_BEST_MOVE    20
+#define OPT_BOOK_DEPTH        21
+#define OPT_LARGE_PAGES       22
+#define OPT_NUMA              23
 
-    static int         to_cp(Value v, const Position& pos);
-    static std::string format_score(const Score& s);
-    static std::string square(Square s);
-    static std::string move(Move m, bool chess960);
-    static std::string wdl(Value v, const Position& pos);
-    static std::string to_lower(std::string str);
-    static Move        to_move(const Position& pos, std::string str);
-
-    static Search::LimitsType parse_limits(std::istream& is);
-
-    auto& engine_options() { return engine.get_options(); }
-
-   private:
-    Engine      engine;
-    CommandLine cli;
-
-    static void print_info_string(std::string_view str);
-
-    void          go(std::istringstream& is);
-    void          bench(std::istream& args);
-    void          benchmark(std::istream& args);
-    void          position(std::istringstream& is);
-    void          setoption(std::istringstream& is);
-    std::uint64_t perft(const Search::LimitsType&);
-
-    static void on_update_no_moves(const Engine::InfoShort& info);
-    static void on_update_full(const Engine::InfoFull& info, bool showWDL);
-    static void on_iter(const Engine::InfoIter& info);
-    static void on_bestmove(std::string_view bestmove, std::string_view ponder);
-
-    void init_search_update_listeners();
+struct Option {
+  char *name;
+  int type;
+  int def, min_val, max_val;
+  char *def_string;
+  OnChange on_change;
+  int value;
+  char *val_string;
 };
 
-}  // namespace Stockfish
+void options_init(void);
+void options_free(void);
+void print_options(void);
+int option_value(int opt);
+char *option_string_value(int opt);
+void option_set_value(int opt, int value);
+int option_set_by_name(char *name, char *value);
 
-#endif  // #ifndef UCI_H_INCLUDED
+void setoption(char *str);
+void position(Pos *pos, char *str);
+
+void uci_loop(int argc, char* argv[]);
+char *uci_value(char *str, Value v);
+char *uci_square(char *str, Square s);
+char *uci_move(char *str, Move m, int chess960);
+void print_pv(Pos *pos, Depth depth, Value alpha, Value beta);
+Move uci_to_move(const Pos *pos, char *str);
+
+#endif
+

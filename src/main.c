@@ -18,24 +18,40 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef MOVEGEN_H
-#define MOVEGEN_H
+#include <stdio.h>
 
-#include "types.h"
+#include "bitboard.h"
+#include "endgame.h"
+#include "pawns.h"
+#include "position.h"
+#include "search.h"
+#include "thread.h"
+#include "tt.h"
+#include "uci.h"
+#include "tbprobe.h"
 
-#define GEN_CAPTURES     0
-#define GEN_QUIETS       1
-#define GEN_QUIET_CHECKS 2
-#define GEN_EVASIONS     3
-#define GEN_NON_EVASIONS 4
-#define GEN_LEGAL        5
+int main(int argc, char **argv)
+{
+  print_engine_info(0);
 
-ExtMove *generate_captures(const Pos *pos, ExtMove *list);
-ExtMove *generate_quiets(const Pos *pos, ExtMove *list);
-ExtMove *generate_quiet_checks(const Pos *pos, ExtMove *list);
-ExtMove *generate_evasions(const Pos *pos, ExtMove *list);
-ExtMove *generate_non_evasions(const Pos *pos, ExtMove *list);
-ExtMove *generate_legal(const Pos *pos, ExtMove *list);
+  psqt_init();
+  zob_init();
+  bitboards_init();
+  bitbases_init();
+  search_init();
+  pawn_init();
+  endgames_init();
+  threads_init();
+  options_init();
+  search_clear();
 
-#endif
+  uci_loop(argc, argv);
+
+  threads_exit();
+  TB_free();
+  options_free();
+  tt_free();
+
+  return 0;
+}
 

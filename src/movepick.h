@@ -1,6 +1,8 @@
 /*
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
-  Copyright (C) 2004-2024 The Stockfish developers (see AUTHORS file)
+  Copyright (C) 2004-2008 Tord Romstad (Glaurung author)
+  Copyright (C) 2008-2015 Marco Costalba, Joona Kiiski, Tord Romstad
+  Copyright (C) 2015-2017 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -16,70 +18,137 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef MOVEPICK_H_INCLUDED
-#define MOVEPICK_H_INCLUDED
+#ifndef MOVEPICK_H
+#define MOVEPICK_H
 
-#include "history.h"
+#include <string.h>   // For memset
+
 #include "movegen.h"
+#include "position.h"
+#include "search.h"
 #include "types.h"
 
-namespace Stockfish {
+#define stats_clear(s) memset(s, 0, sizeof(*s))
 
-class Position;
+static const int CounterMovePruneThreshold = 0;
 
-// The MovePicker class is used to pick one pseudo-legal move at a time from the
-// current position. The most important method is next_move(), which emits one
-// new pseudo-legal move on every call, until there are no moves left, when
-// Move::none() is returned. In order to improve the efficiency of the alpha-beta
-// algorithm, MovePicker attempts to return the moves which are most likely to get
-// a cut-off first.
-class MovePicker {
+INLINE void cms_update(PieceToHistory cms, Piece pc, Square to, int v)
+{
+  int w = v >= 0 ? v : -v;
 
-    enum PickType {
-        Next,
-        Best
-    };
+  cms[pc][to] += v * 32 - cms[pc][to] * w / 936;
+}
 
-   public:
-    MovePicker(const MovePicker&)            = delete;
-    MovePicker& operator=(const MovePicker&) = delete;
-    MovePicker(const Position&,
-               Move,
-               Depth,
-               const ButterflyHistory*,
-               const LowPlyHistory*,
-               const CapturePieceToHistory*,
-               const PieceToHistory**,
-               const PawnHistory*,
-               int);
-    MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
-    Move next_move();
-    void skip_quiet_moves();
+INLINE void history_update(ButterflyHistory history, int c, Move m, int v)
+{
+  int w = v >= 0 ? v : -v;
 
-   private:
-    template<PickType T, typename Pred>
-    Move select(Pred);
-    template<GenType>
-    void     score();
-    ExtMove* begin() { return cur; }
-    ExtMove* end() { return endMoves; }
+  m &= 4095;
+  history[c][m] += v * 32 - history[c][m] * w / 324;
+}
 
-    const Position&              pos;
-    const ButterflyHistory*      mainHistory;
-    const LowPlyHistory*         lowPlyHistory;
-    const CapturePieceToHistory* captureHistory;
-    const PieceToHistory**       continuationHistory;
-    const PawnHistory*           pawnHistory;
-    Move                         ttMove;
-    ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
-    int                          stage;
-    int                          threshold;
-    Depth                        depth;
-    int                          ply;
-    bool                         skipQuiets = false;
-    ExtMove                      moves[MAX_MOVES];
-};
+INLINE void cpth_update(CapturePieceToHistory history, Piece pc, Square to,
+                        int captured, int v)
+{
+  int w = v >= 0 ? v : -v;
 
-}  // namespace Stockfish
+  history[pc][to][captured] += v * 2 - history[pc][to][captured] * w / 324;
+}
 
-#endif  // #ifndef MOVEPICK_H_INCLUDED
+#define ST_MAIN_SEARCH             0
+#define ST_CAPTURES_GEN            1
+#define ST_GOOD_CAPTURES           2
+#define ST_KILLERS                 3
+#define ST_KILLERS_2               4
+#define ST_QUIET_GEN               5
+#define ST_QUIET                   6
+#define ST_BAD_CAPTURES            7
+
+#define ST_EVASIONS                8
+#define ST_ALL_EVASIONS            9
+
+#define ST_QSEARCH_WITH_CHECKS     10
+#define ST_QCAPTURES_CHECKS_GEN    11
+#define ST_QCAPTURES_CHECKS        12
+#define ST_CHECKS                  13
+
+#define ST_QSEARCH_WITHOUT_CHECKS  14
+#define ST_QCAPTURES_NO_CHECKS_GEN 15
+#define ST_REMAINING               16
+
+#define ST_RECAPTURES_GEN          17
+#define ST_RECAPTURES              18
+
+#define ST_PROBCUT                 19
+#define ST_PROBCUT_GEN             20
+#define ST_PROBCUT_2               21
+
+Move next_move(const Pos *pos, int skipQuiets);
+
+// Initialisation of move picker data.
+
+INLINE void mp_init(const Pos *pos, Move ttm, Depth depth)
+{
+  assert(depth > DEPTH_ZERO);
+
+  Stack *st = pos->st;
+
+  st->depth = depth;
+
+  Square prevSq = to_sq((st-1)->currentMove);
+  st->countermove = (*pos->counterMoves)[piece_on(prevSq)][prevSq];
+  st->mp_killers[0] = st->killers[0];
+  st->mp_killers[1] = st->killers[1];
+
+  st->stage = pos_checkers() ? ST_EVASIONS : ST_MAIN_SEARCH;
+  st->ttMove = ttm;
+  if (!ttm || !is_pseudo_legal(pos, ttm)) {
+    st->stage++;
+    st->ttMove = 0;
+  }
+}
+
+INLINE void mp_init_q(const Pos *pos, Move ttm, Depth depth, Square s)
+{
+  assert(depth <= DEPTH_ZERO);
+
+  Stack *st = pos->st;
+
+  if (pos_checkers())
+    st->stage = ST_EVASIONS;
+  else if (depth > DEPTH_QS_NO_CHECKS)
+    st->stage = ST_QSEARCH_WITH_CHECKS;
+  else if (depth > DEPTH_QS_RECAPTURES)
+    st->stage = ST_QSEARCH_WITHOUT_CHECKS;
+  else {
+    st->stage = ST_RECAPTURES_GEN;
+    st->recaptureSquare = s;
+    return;
+  }
+
+  st->ttMove = ttm;
+  if (!ttm || !is_pseudo_legal(pos, ttm)) {
+    st->stage++;
+    st->ttMove = 0;
+  }
+}
+
+INLINE void mp_init_pc(const Pos *pos, Move ttm, Value threshold)
+{
+  assert(!pos_checkers());
+
+  Stack *st = pos->st;
+
+  st->threshold = threshold;
+
+  st->stage = ST_PROBCUT;
+
+  // In ProbCut we generate captures with SEE higher than the given
+  // threshold.
+  st->ttMove =   ttm && is_pseudo_legal(pos, ttm) && is_capture(pos, ttm)
+              && see_test(pos, ttm, threshold) ? ttm : 0;
+  if (st->ttMove == 0) st->stage++;
+}
+
+#endif
+

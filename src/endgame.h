@@ -18,24 +18,30 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef MOVEGEN_H
-#define MOVEGEN_H
+#ifndef ENDGAME_H
+#define ENDGAME_H
 
 #include "types.h"
 
-#define GEN_CAPTURES     0
-#define GEN_QUIETS       1
-#define GEN_QUIET_CHECKS 2
-#define GEN_EVASIONS     3
-#define GEN_NON_EVASIONS 4
-#define GEN_LEGAL        5
+typedef struct Pos Pos;
 
-ExtMove *generate_captures(const Pos *pos, ExtMove *list);
-ExtMove *generate_quiets(const Pos *pos, ExtMove *list);
-ExtMove *generate_quiet_checks(const Pos *pos, ExtMove *list);
-ExtMove *generate_evasions(const Pos *pos, ExtMove *list);
-ExtMove *generate_non_evasions(const Pos *pos, ExtMove *list);
-ExtMove *generate_legal(const Pos *pos, ExtMove *list);
+typedef Value (EgFunc)(const Pos *, unsigned);
+
+EgFunc EvaluateKPK, EvaluateKNNK, EvaluateKBNK, EvaluateKRKP,
+       EvaluateKRKB, EvaluateKRKN, EvaluateKQKP, EvaluateKQKR,
+       EvaluateKXK;
+
+EgFunc ScaleKNPK, ScaleKNPKB, ScaleKRPKR, ScaleKRPKB,
+       ScaleKBPKB, ScaleKBPKN, ScaleKBPPKB, ScaleKRPPKRP,
+       ScaleKBPsK, ScaleKQKRPs, ScaleKPKP, ScaleKPsK;
+
+#define NUM_EVAL 8
+#define NUM_SCALING 8
+
+extern EgFunc *endgame_funcs[22];
+extern Key endgame_keys[16][2];
+
+void endgames_init(void);
 
 #endif
 
