@@ -27,69 +27,24 @@
 // TTEntry struct is the 10 bytes transposition table entry, defined as below:
 //
 // key        16 bit
+// depth       8 bit
+// generation  5 bit
+// pv node     1 bit
+// bound type  2 bit
 // move       16 bit
 // value      16 bit
 // eval value 16 bit
-// generation  6 bit
-// bound type  2 bit
-// depth       8 bit
 
 struct TTEntry {
   uint16_t key16;
+  uint8_t  depth8;
+  uint8_t  genBound8;
   uint16_t move16;
   int16_t  value16;
   int16_t  eval16;
-  uint8_t  genBound8;
-  int8_t   depth8;
 };
 
 typedef struct TTEntry TTEntry;
-
-INLINE void tte_save(TTEntry *tte, Key k, Value v, int b, Depth d,
-                            Move m, Value ev, uint8_t g)
-{
-  // Preserve any existing move for the same position
-  if (m || (k >> 48) != tte->key16)
-    tte->move16 = (uint16_t)m;
-
-  // Don't overwrite more valuable entries
-  if (  (k >> 48) != tte->key16
-      || d / ONE_PLY > tte->depth8 - 4
-   /* || g != (tte->genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
-      || b == BOUND_EXACT) {
-    tte->key16     = (uint16_t)(k >> 48);
-    tte->value16   = (int16_t)v;
-    tte->eval16    = (int16_t)ev;
-    tte->genBound8 = (uint8_t)(g | b);
-    tte->depth8    = (int8_t)(d / ONE_PLY);
-  }
-}
-
-INLINE Move tte_move(TTEntry *tte)
-{
-  return (Move)tte->move16;
-}
-
-INLINE Value tte_value(TTEntry *tte)
-{
-  return (Value)tte->value16;
-}
-
-INLINE Value tte_eval(TTEntry *tte)
-{
-  return (Value)tte->eval16;
-}
-
-INLINE Depth tte_depth(TTEntry *tte)
-{
-  return (Depth)(tte->depth8 * ONE_PLY);
-}
-
-INLINE int tte_bound(TTEntry *tte)
-{
-  return tte->genBound8 & 0x3;
-}
-
 
 // A TranspositionTable consists of a power of 2 number of clusters and
 // each cluster consists of ClusterSize number of TTEntry. Each non-empty
@@ -98,8 +53,7 @@ INLINE int tte_bound(TTEntry *tte)
 // clusters never cross cache lines. This ensures best cache performance,
 // as the cacheline is prefetched, as soon as possible.
 
-#define CacheLineSize 64
-#define ClusterSize 3
+enum { CacheLineSize = 64, ClusterSize = 3 };
 
 struct Cluster {
   TTEntry entry[ClusterSize];
@@ -109,16 +63,10 @@ struct Cluster {
 typedef struct Cluster Cluster;
 
 struct TranspositionTable {
-#ifdef BIG_TT
-  size_t mask;         // clusterCount - 1
   size_t clusterCount;
-#else
-  size_t clusterCount;
-  size_t mask;         // clusterCount - 1
-#endif
   Cluster *table;
   void *mem;
-  size_t alloc_size;
+  size_t allocSize;
   uint8_t generation8; // Size must be not bigger than TTEntry::genBound8
 };
 
@@ -126,30 +74,73 @@ typedef struct TranspositionTable TranspositionTable;
 
 extern TranspositionTable TT;
 
+INLINE void tte_save(TTEntry *tte, Key k, Value v, bool pv, int b, Depth d,
+    Move m, Value ev)
+{
+  // Preserve any existing move for the same position
+  if (m || (uint16_t)k != tte->key16)
+    tte->move16 = (uint16_t)m;
+
+  // Don't overwrite more valuable entries
+  if (  (uint16_t)k != tte->key16
+      || d - DEPTH_OFFSET > tte->depth8 - 4
+      || b == BOUND_EXACT)
+  {
+    assert(d > DEPTH_OFFSET && d < 256 + DEPTH_OFFSET);
+
+    tte->key16     = (uint16_t)k;
+    tte->depth8    = (uint8_t)(d - DEPTH_OFFSET);
+    tte->genBound8 = (uint8_t)(TT.generation8 | ((uint8_t)pv << 2) | b);
+    tte->value16   = (int16_t)v;
+    tte->eval16    = (int16_t)ev;
+  }
+}
+
+INLINE Move tte_move(TTEntry *tte)
+{
+  return tte->move16;
+}
+
+INLINE Value tte_value(TTEntry *tte)
+{
+  return tte->value16;
+}
+
+INLINE Value tte_eval(TTEntry *tte)
+{
+  return tte->eval16;
+}
+
+INLINE Depth tte_depth(TTEntry *tte)
+{
+  return tte->depth8 + DEPTH_OFFSET;
+}
+
+INLINE bool tte_is_pv(TTEntry *tte)
+{
+  return tte->genBound8 & 0x4;
+}
+
+INLINE int tte_bound(TTEntry *tte)
+{
+  return tte->genBound8 & 0x3;
+}
+
 void tt_free(void);
 
 INLINE void tt_new_search(void)
 {
-  TT.generation8 += 4; // Lower 2 bits are used by Bound
-}
-
-INLINE uint8_t tt_generation(void)
-{
-  return TT.generation8;
+  TT.generation8 += 8; // Lower 3 bits are used by PvNode and Bound
 }
 
 INLINE TTEntry *tt_first_entry(Key key)
 {
-#ifdef BIG_TT
-  return &TT.table[(size_t)key & TT.mask].entry[0];
-#else
-  return &TT.table[((uint32_t)key * (uint64_t)TT.clusterCount) >> 32].entry[0];
-#endif
+  return &TT.table[mul_hi64(key, TT.clusterCount)].entry[0];
 }
 
-TTEntry *tt_probe(Key key, int *found);
+TTEntry *tt_probe(Key key, bool *found);
 void tt_allocate(size_t mbSize);
 void tt_clear(void);
+void tt_clear_worker(int idx);
 
 #endif
-

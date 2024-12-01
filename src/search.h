@@ -21,8 +21,6 @@
 #ifndef SEARCH_H
 #define SEARCH_H
 
-#include <stdatomic.h>
-
 #include "misc.h"
 #include "position.h"
 #include "thread.h"
@@ -34,10 +32,13 @@
 // moves.
 
 struct RootMove {
-  int pv_size;
+  int pvSize;
   Value score;
   Value previousScore;
   int selDepth;
+  int tbRank;
+  int bestMoveCount;
+  Value tbScore;
   Move pv[MAX_PLY];
 };
 
@@ -62,42 +63,25 @@ struct LimitsType {
   int depth;
   int movetime;
   int mate;
-  int infinite;
-  int ponder;
+  bool infinite;
   uint64_t nodes;
   TimePoint startTime;
-  int num_searchmoves;
+  int numSearchmoves;
   Move searchmoves[MAX_MOVES];
 };
 
 typedef struct LimitsType LimitsType;
 
-// The SignalsType struct stores atomic flags updated during the search
-// typically in an async fashion e.g. to stop the search by the GUI.
-
-struct SignalsType {
-  atomic_bool stop; // Search threads should stop searching.
-  atomic_bool stopOnPonderhit; // Main search thread is willing to stop.
-  int searching; // UI thread has started the main thread and has not yet
-                 // called thread_wait_for_search_finished().
-  int sleeping; // Main search thread is sleeping and must be woken up.
-  LOCK_T lock;
-};
-
-typedef struct SignalsType SignalsType;
-
-extern SignalsType Signals;
 extern LimitsType Limits;
 
 INLINE int use_time_management(void)
 {
-  return !(Limits.mate | Limits.movetime | Limits.depth | Limits.nodes
-                       | Limits.infinite);
+  return Limits.time[WHITE] || Limits.time[BLACK];
 }
 
-void search_init();
-void search_clear();
-void start_thinking(Pos *pos);
+void search_init(void);
+void search_clear(void);
+uint64_t perft(Position *pos, Depth depth);
+void start_thinking(Position *pos, bool ponderMode);
 
 #endif
-

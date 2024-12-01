@@ -22,7 +22,7 @@
 #define THREAD_H
 
 #include <stdatomic.h>
-#ifndef __WIN32__
+#ifndef _WIN32
 #include <pthread.h>
 #else
 #include <windows.h>
@@ -32,7 +32,7 @@
 
 #define MAX_THREADS 512
 
-#ifndef __WIN32__
+#ifndef _WIN32
 #define LOCK_T pthread_mutex_t
 #define LOCK_INIT(x) pthread_mutex_init(&(x), NULL)
 #define LOCK_DESTROY(x) pthread_mutex_destroy(&(x))
@@ -46,28 +46,29 @@
 #define UNLOCK(x) ReleaseMutex(x)
 #endif
 
-void thread_init(void *arg);
-void thread_create(int idx);
-void thread_search(Pos *pos);
-void thread_idle_loop(Pos *pos);
-void thread_start_searching(Pos *pos, int resume);
-void thread_wait_for_search_finished(Pos *pos);
-void thread_wait(Pos *pos, atomic_bool *b);
+enum {
+  THREAD_SLEEP, THREAD_SEARCH, THREAD_TT_CLEAR, THREAD_EXIT, THREAD_STATE_RESUME
+};
+
+void thread_search(Position *pos);
+void thread_wake_up(Position *pos, int action);
+void thread_wait_until_sleeping(Position *pos);
+void thread_wait(Position *pos, atomic_bool *b);
 
 
 // MainThread struct seems to exist mostly for easy move.
 
 struct MainThread {
-  int failedLow;
-  double bestMoveChanges, previousTimeReduction;
+  double previousTimeReduction;
   Value previousScore;
+  Value iterValue[4];
 };
 
 typedef struct MainThread MainThread;
 
 extern MainThread mainThread;
 
-void mainthread_search();
+void mainthread_search(void);
 
 
 // ThreadPool struct handles all the threads-related stuff like init,
@@ -75,34 +76,36 @@ void mainthread_search();
 // access to threads data is done through this class.
 
 struct ThreadPool {
-  Pos *pos[MAX_THREADS];
-  int num_threads;
-#ifndef __WIN32__
+  Position *pos[MAX_THREADS];
+  int numThreads;
+#ifndef _WIN32
   pthread_mutex_t mutex;
   pthread_cond_t sleepCondition;
-  int initializing;
+  bool initializing;
 #else
   HANDLE event;
 #endif
+  bool searching, sleeping, stopOnPonderhit;
+  atomic_bool ponder, stop, increaseDepth;
+  LOCK_T lock;
 };
 
 typedef struct ThreadPool ThreadPool;
 
 void threads_init(void);
 void threads_exit(void);
-void threads_start_thinking(Pos *pos, LimitsType *);
+void threads_start_thinking(Position *pos, LimitsType *);
 void threads_set_number(int num);
 uint64_t threads_nodes_searched(void);
 
 extern ThreadPool Threads;
 
-INLINE Pos *threads_main(void)
+INLINE Position *threads_main(void)
 {
   return Threads.pos[0];
 }
 
-CounterMoveHistoryStat **cmh_tables;
-int num_cmh_tables;
+extern CounterMoveHistoryStat **cmhTables;
+extern int numCmhTables;
 
 #endif
-

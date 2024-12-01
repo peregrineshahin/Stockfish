@@ -30,65 +30,64 @@ typedef struct Option Option;
 
 typedef void (*OnChange)(Option *);
 
-// no options are of type combo
-#define OPT_TYPE_CHECK    0
-#define OPT_TYPE_SPIN     1
-#define OPT_TYPE_BUTTON   2
-#define OPT_TYPE_STRING   3
-#define OPT_TYPE_DISABLED 4
+enum {
+  OPT_TYPE_CHECK, OPT_TYPE_SPIN, OPT_TYPE_BUTTON, OPT_TYPE_STRING,
+  OPT_TYPE_COMBO, OPT_TYPE_DISABLED
+};
 
-#define OPT_CONTEMPT          0
-#define OPT_ANALYSIS_CONTEMPT 1
-#define OPT_THREADS           2
-#define OPT_HASH              3
-#define OPT_CLEAR_HASH        4
-#define OPT_PONDER            5
-#define OPT_MULTI_PV          6
-#define OPT_SKILL_LEVEL       7
-#define OPT_MOVE_OVERHEAD     8
-#define OPT_MIN_THINK_TIME    9
-#define OPT_SLOW_MOVER        10
-#define OPT_NODES_TIME        11
-#define OPT_ANALYSE_MODE      12
-#define OPT_CHESS960          13
-#define OPT_SYZ_PATH          14
-#define OPT_SYZ_PROBE_DEPTH   15
-#define OPT_SYZ_50_MOVE       16
-#define OPT_SYZ_PROBE_LIMIT   17
-#define OPT_SYZ_USE_DTM       18
-#define OPT_BOOK_FILE         19
-#define OPT_BOOK_BEST_MOVE    20
-#define OPT_BOOK_DEPTH        21
-#define OPT_LARGE_PAGES       22
-#define OPT_NUMA              23
+enum {
+  OPT_CONTEMPT,
+  OPT_ANALYSIS_CONTEMPT,
+  OPT_THREADS,
+  OPT_HASH,
+  OPT_CLEAR_HASH,
+  OPT_PONDER,
+  OPT_MULTI_PV,
+  OPT_SKILL_LEVEL,
+  OPT_MOVE_OVERHEAD,
+  OPT_SLOW_MOVER,
+  OPT_NODES_TIME,
+  OPT_ANALYSE_MODE,
+  OPT_CHESS960,
+  OPT_SYZ_PATH,
+  OPT_SYZ_PROBE_DEPTH,
+  OPT_SYZ_50_MOVE,
+  OPT_SYZ_PROBE_LIMIT,
+  OPT_SYZ_USE_DTM,
+  OPT_BOOK_FILE,
+  OPT_BOOK_BEST_MOVE,
+  OPT_BOOK_DEPTH,
+  OPT_LARGE_PAGES,
+  OPT_NUMA
+};
 
 struct Option {
   char *name;
   int type;
-  int def, min_val, max_val;
-  char *def_string;
-  OnChange on_change;
+  int def, minVal, maxVal;
+  char *defString;
+  OnChange onChange;
   int value;
-  char *val_string;
+  char *valString;
 };
 
 void options_init(void);
 void options_free(void);
 void print_options(void);
 int option_value(int opt);
-char *option_string_value(int opt);
+const char *option_string_value(int opt);
+const char *option_default_string_value(int opt);
 void option_set_value(int opt, int value);
-int option_set_by_name(char *name, char *value);
+bool option_set_by_name(char *name, char *value);
 
 void setoption(char *str);
-void position(Pos *pos, char *str);
+void position(Position *pos, char *str);
 
 void uci_loop(int argc, char* argv[]);
 char *uci_value(char *str, Value v);
 char *uci_square(char *str, Square s);
 char *uci_move(char *str, Move m, int chess960);
-void print_pv(Pos *pos, Depth depth, Value alpha, Value beta);
-Move uci_to_move(const Pos *pos, char *str);
+void print_pv(Position *pos, Depth depth, Value alpha, Value beta);
+Move uci_to_move(const Position *pos, char *str);
 
 #endif
-

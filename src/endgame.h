@@ -23,25 +23,14 @@
 
 #include "types.h"
 
-typedef struct Pos Pos;
+typedef Value (EgFunc)(const Position *, Color);
 
-typedef Value (EgFunc)(const Pos *, unsigned);
+#define NUM_EVAL 9
+#define NUM_SCALING 6
 
-EgFunc EvaluateKPK, EvaluateKNNK, EvaluateKBNK, EvaluateKRKP,
-       EvaluateKRKB, EvaluateKRKN, EvaluateKQKP, EvaluateKQKR,
-       EvaluateKXK;
-
-EgFunc ScaleKNPK, ScaleKNPKB, ScaleKRPKR, ScaleKRPKB,
-       ScaleKBPKB, ScaleKBPKN, ScaleKBPPKB, ScaleKRPPKRP,
-       ScaleKBPsK, ScaleKQKRPs, ScaleKPKP, ScaleKPsK;
-
-#define NUM_EVAL 8
-#define NUM_SCALING 8
-
-extern EgFunc *endgame_funcs[22];
-extern Key endgame_keys[16][2];
+extern EgFunc *endgame_funcs[NUM_EVAL + NUM_SCALING + 6];
+extern Key endgame_keys[NUM_EVAL + NUM_SCALING][2];
 
 void endgames_init(void);
 
 #endif
-

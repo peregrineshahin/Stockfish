@@ -18,16 +18,16 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define _GNU_SOURCE
-
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
-#ifndef __WIN32__
+#ifndef _WIN32
 #include <sys/mman.h>
 #endif
 
+#include "evaluate.h"
 #include "misc.h"
 #include "numa.h"
 #include "search.h"
@@ -41,19 +41,19 @@ static void on_clear_hash(Option *opt)
 {
   (void)opt;
 
-  if (settings.tt_size)
+  if (settings.ttSize)
     search_clear();
 }
 
 static void on_hash_size(Option *opt)
 {
-  delayed_settings.tt_size = opt->value;
+  delayedSettings.ttSize = opt->value;
 }
 
 static void on_numa(Option *opt)
 {
 #ifdef NUMA
-  read_numa_nodes(opt->val_string);
+  read_numa_nodes(opt->valString);
 #else
   (void)opt;
 #endif
@@ -61,69 +61,69 @@ static void on_numa(Option *opt)
 
 static void on_threads(Option *opt)
 {
-  delayed_settings.num_threads = opt->value;
+  delayedSettings.numThreads = opt->value;
 }
 
 static void on_large_pages(Option *opt)
 {
-  delayed_settings.large_pages = opt->value;
+  delayedSettings.largePages = opt->value;
 }
 
-
 #ifdef IS_64BIT
-#ifdef BIG_TT
-#define MAXHASHMB (1024 * 1024)
-#else
-#define MAXHASHMB 131072
-#endif
+#define MAXHASHMB 33554432
 #else
 #define MAXHASHMB 2048
 #endif
 
-static Option options_map[] = {
-  { "Contempt", OPT_TYPE_SPIN, 20, -100, 100, NULL, NULL, 0, NULL },
-  { "Analysis Contempt", OPT_TYPE_CHECK, 0, 0, 0, NULL, NULL, 0, NULL },
+static Option optionsMap[] = {
+  { "Contempt", OPT_TYPE_SPIN, 24, -100, 100, NULL, NULL, 0, NULL },
+  { "Analysis Contempt", OPT_TYPE_COMBO, 0, 0, 0,
+    "Off var Off var White var Black", NULL, 0, NULL },
   { "Threads", OPT_TYPE_SPIN, 1, 1, MAX_THREADS, NULL, on_threads, 0, NULL },
-  { "Hash", OPT_TYPE_SPIN, 1, 1, MAXHASHMB, NULL, on_hash_size, 0, NULL },
+  { "Hash", OPT_TYPE_SPIN, 16, 1, MAXHASHMB, NULL, on_hash_size, 0, NULL },
   { "Clear Hash", OPT_TYPE_BUTTON, 0, 0, 0, NULL, on_clear_hash, 0, NULL },
   { "Ponder", OPT_TYPE_CHECK, 0, 0, 0, NULL, NULL, 0, NULL },
   { "MultiPV", OPT_TYPE_SPIN, 1, 1, 500, NULL, NULL, 0, NULL },
   { "Skill Level", OPT_TYPE_SPIN, 20, 0, 20, NULL, NULL, 0, NULL },
-  { "Move Overhead", OPT_TYPE_SPIN, 30, 0, 5000, NULL, NULL, 0, NULL },
-  { "Minimum Thinking Time", OPT_TYPE_SPIN, 20, 0, 5000, NULL, NULL, 0, NULL },
-  { "Slow Mover", OPT_TYPE_SPIN, 89, 10, 1000, NULL, NULL, 0, NULL },
+  { "Move Overhead", OPT_TYPE_SPIN, 10, 0, 5000, NULL, NULL, 0, NULL },
+  { "Slow Mover", OPT_TYPE_SPIN, 100, 10, 1000, NULL, NULL, 0, NULL },
   { "nodestime", OPT_TYPE_SPIN, 0, 0, 10000, NULL, NULL, 0, NULL },
   { "UCI_AnalyseMode", OPT_TYPE_CHECK, 0, 0, 0, NULL, NULL, 0, NULL },
   { "UCI_Chess960", OPT_TYPE_CHECK, 0, 0, 0, NULL, NULL, 0, NULL },
   { "LargePages", OPT_TYPE_CHECK, 1, 0, 0, NULL, on_large_pages, 0, NULL },
   { "NUMA", OPT_TYPE_STRING, 0, 0, 0, "all", on_numa, 0, NULL },
-  { NULL }
+  { 0 }
 };
-
 
 // options_init() initializes the UCI options to their hard-coded default
 // values.
 
 void options_init()
 {
+  char *s;
+  size_t len;
+
 #ifdef NUMA
   // On a non-NUMA machine, disable the NUMA option to diminish confusion.
-  if (!numa_avail)
-    options_map[OPT_NUMA].type = OPT_TYPE_DISABLED;
+  if (!numaAvail)
+    optionsMap[OPT_NUMA].type = OPT_TYPE_DISABLED;
 #else
-  options_map[OPT_NUMA].type = OPT_TYPE_DISABLED;
+  optionsMap[OPT_NUMA].type = OPT_TYPE_DISABLED;
 #endif
-#ifdef __WIN32__
+#ifdef _WIN32
   // Disable the LargePages option if the machine does not support it.
   if (!large_pages_supported())
-    options_map[OPT_LARGE_PAGES].type = OPT_TYPE_DISABLED;
+    optionsMap[OPT_LARGE_PAGES].type = OPT_TYPE_DISABLED;
 #endif
-#ifdef __linux__
-#ifndef MADV_HUGEPAGE
-  options_map[OPT_LARGE_PAGES].type = OPT_TYPE_DISABLED;
+#if defined(__linux__) && !defined(MADV_HUGEPAGE)
+  optionsMap[OPT_LARGE_PAGES].type = OPT_TYPE_DISABLED;
 #endif
-#endif
-  for (Option *opt = options_map; opt->name != NULL; opt++) {
+  optionsMap[OPT_SKILL_LEVEL].type = OPT_TYPE_DISABLED;
+  if (sizeof(size_t) < 8) {
+    optionsMap[OPT_SYZ_PROBE_LIMIT].def = 5;
+    optionsMap[OPT_SYZ_PROBE_LIMIT].maxVal = 5;
+  }
+  for (Option *opt = optionsMap; opt->name != NULL; opt++) {
     if (opt->type == OPT_TYPE_DISABLED)
       continue;
     switch (opt->type) {
@@ -133,25 +133,32 @@ void options_init()
     case OPT_TYPE_BUTTON:
       break;
     case OPT_TYPE_STRING:
-      opt->val_string = malloc(strlen(opt->def_string) + 1);
-      strcpy(opt->val_string, opt->def_string);
+      opt->valString = strdup(opt->defString);
+      break;
+    case OPT_TYPE_COMBO:
+      s = strstr(opt->defString, " var");
+      len = strlen(opt->defString) - strlen(s);
+      opt->valString = malloc(len + 1);
+      strncpy(opt->valString, opt->defString, len);
+      opt->valString[len] = 0;
+      for (s = opt->valString; *s; s++)
+        *s = tolower(*s);
       break;
     }
-    if (opt->on_change)
-      opt->on_change(opt);
+    if (opt->onChange)
+      opt->onChange(opt);
   }
 }
 
 void options_free(void)
 {
-  for (Option *opt = options_map; opt->name != NULL; opt++)
+  for (Option *opt = optionsMap; opt->name != NULL; opt++)
     if (opt->type == OPT_TYPE_STRING)
-      free(opt->val_string);
+      free(opt->valString);
 }
 
-static char *opt_type_str[] =
-{
-  "check", "spin", "button", "string"
+static const char *optTypeStr[] = {
+  "check", "spin", "button", "string", "combo"
 };
 
 // print_options() prints all options in the format required by the
@@ -159,20 +166,21 @@ static char *opt_type_str[] =
 
 void print_options(void)
 {
-  for (Option *opt = options_map; opt->name != NULL; opt++) {
+  for (Option *opt = optionsMap; opt->name != NULL; opt++) {
     if (opt->type == OPT_TYPE_DISABLED)
       continue;
-    printf("option name %s type %s", opt->name, opt_type_str[opt->type]);
+    printf("option name %s type %s", opt->name, optTypeStr[opt->type]);
     switch (opt->type) {
     case OPT_TYPE_CHECK:
       printf(" default %s", opt->def ? "true" : "false");
       break;
     case OPT_TYPE_SPIN:
-      printf(" default %d min %d max %d", opt->def, opt->min_val, opt->max_val);
+      printf(" default %d min %d max %d", opt->def, opt->minVal, opt->maxVal);
     case OPT_TYPE_BUTTON:
       break;
     case OPT_TYPE_STRING:
-      printf(" default %s", opt->def_string);
+    case OPT_TYPE_COMBO:
+      printf(" default %s", opt->defString);
       break;
     }
     printf("\n");
@@ -180,28 +188,33 @@ void print_options(void)
   fflush(stdout);
 }
 
-int option_value(int opt_idx)
+int option_value(int optIdx)
 {
-  return options_map[opt_idx].value;
+  return optionsMap[optIdx].value;
 }
 
-char *option_string_value(int opt_idx)
+const char *option_string_value(int optIdx)
 {
-  return options_map[opt_idx].val_string;
+  return optionsMap[optIdx].valString;
 }
 
-void option_set_value(int opt_idx, int value)
+const char *option_default_string_value(int optIdx)
 {
-  Option *opt = &options_map[opt_idx];
+  return optionsMap[optIdx].defString;
+}
+
+void option_set_value(int optIdx, int value)
+{
+  Option *opt = &optionsMap[optIdx];
 
   opt->value = value;
-  if (opt->on_change)
-    opt->on_change(opt);
+  if (opt->onChange)
+    opt->onChange(opt);
 }
 
-int option_set_by_name(char *name, char *value)
+bool option_set_by_name(char *name, char *value)
 {
-  for (Option *opt = options_map; opt->name != NULL; opt++) {
+  for (Option *opt = optionsMap; opt->name != NULL; opt++) {
     if (opt->type == OPT_TYPE_DISABLED)
       continue;
     if (strcasecmp(opt->name, name) == 0) {
@@ -213,27 +226,30 @@ int option_set_by_name(char *name, char *value)
         else if (strcmp(value, "false") == 0)
           opt->value = 0;
         else
-          return 1;
+          return true;
         break;
       case OPT_TYPE_SPIN:
         val = atoi(value);
-        if (val < opt->min_val || val > opt->max_val)
-          return 1;
+        if (val < opt->minVal || val > opt->maxVal)
+          return true;
         opt->value = val;
       case OPT_TYPE_BUTTON:
         break;
       case OPT_TYPE_STRING:
-        free(opt->val_string);
-        opt->val_string = malloc(strlen(value) + 1);
-        strcpy(opt->val_string, value);
+        free(opt->valString);
+        opt->valString = strdup(value);
         break;
+      case OPT_TYPE_COMBO:
+        free(opt->valString);
+        opt->valString = strdup(value);
+        for (char *s = opt->valString; *s; s++)
+          *s = tolower(*s);
       }
-      if (opt->on_change)
-        opt->on_change(opt);
-      return 1;
+      if (opt->onChange)
+        opt->onChange(opt);
+      return true;
     }
   }
 
-  return 0;
+  return false;
 }
-
