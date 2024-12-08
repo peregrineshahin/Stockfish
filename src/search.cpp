@@ -1378,7 +1378,8 @@ moves_loop:  // When in check, search starts here
     else if (bestMove)
     {
         int bonus =
-          (1 + 2 * (ttData.value <= alpha && ttData.bound & BOUND_UPPER)) * stat_bonus(depth);
+          (1 + 2 * (ttData.value <= alpha && ttData.bound & BOUND_UPPER) && depth >= ttData.depth)
+          * stat_bonus(depth);
         int malus = stat_malus(depth);
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, bonus,
                          malus);
